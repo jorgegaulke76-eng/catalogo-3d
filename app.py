@@ -83,14 +83,20 @@ if st.button("Gerar Catálogo"):
             
             # Tabela Exibição
             # Tabela Exibição com foco em visibilidade
-            st.subheader("Catálogo Gerado")
-            st.dataframe(
-                df,
-                column_config={
-                    "Imagem": st.column_config.ImageColumn("Prévia", width="large"), # Aumentei para 'large'
-                    "Codigo": st.column_config.TextColumn("Código", width="small"),
-                    "Custo (R$)": st.column_config.NumberColumn(format="R$ %.2f", width="small"),
-                    "Preço Venda (R$)": st.column_config.NumberColumn(format="R$ %.2f", width="small"),
+            # --- EXIBIÇÃO PROFISSIONAL EM CARTÕES ---
+        st.subheader("Catálogo Gerado")
+        
+        for _, row in df.iterrows():
+            with st.container(border=True): # Cria um cartão com borda para cada produto
+                c1, c2, c3 = st.columns([1, 2, 1])
+                with c1:
+                    st.image(row['Imagem'], use_container_width=True)
+                with c2:
+                    st.write(f"### {row['Produto']}")
+                    st.write(row['Descrição'])
+                with c3:
+                    st.metric("Custo", f"R$ {row['Custo (R$)']:.2f}")
+                    st.metric("Venda", f"R$ {row['Preço Venda (R$)']:.2f}"),
                 },
                 hide_index=True,
                 use_container_width=True,
