@@ -5,13 +5,22 @@ import urllib.parse
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se: GROQ_API_KEY deve estar em Settings > Secrets
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- FUNÇÕES ---
+
+def extrair_nome_do_link(link):
+    """Extrai um nome legível a partir de um link do MakerWorld."""
+    # Pega a última parte da URL, remove caracteres especiais e formata
+    nome = link.split('/')[-1].split('?')[0].replace('-', ' ')
+    return nome.title()
+
 def gerar_url_imagem(nome_produto):
-    nome_limpo = nome_produto.split('/')[-1].replace('-', ' ').split('?')[0]
-    prompt = f"{nome_limpo} 3d printed object"
-    return f"https://pollinations.ai/p/{urllib.parse.quote(prompt)}?nologo=true"
+    """Gera URL simplificada para imagem."""
+    # Usa o nome limpo para gerar a imagem
+    prompt = f"{nome_produto} 3d printed object"
+    return f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}?width=512&height=512&nologo=true"
 
 def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexidade):
     custo_filamento = (peso_g / 1000) * preco_kg
@@ -57,14 +66,18 @@ if st.button("Gerar Catálogo"):
         with st.spinner("Gerando dados e imagens..."):
             for i, item in enumerate(linhas):
                 if not item.strip(): continue
-                nome = item.strip()
+                link = item.strip()
+                
+                # Nome limpo para exibir na tela e gerar a imagem
+                nome_exibicao = extrair_nome_do_link(link)
+                
                 peso, tempo = 100.0, 2.0 
                 custo_total, preco_venda = calcular_preco(peso, tempo, preco_kg, margem, custo_hora, complexidade)
                 
                 dados_catalogo.append({
-                    "Produto": nome,
-                    "Imagem": gerar_url_imagem(nome),
-                    "Descrição": gerar_anuncio_ia(nome),
+                    "Nome_Exibicao": nome_exibicao,
+                    "Imagem": gerar_url_imagem(nome_exibicao),
+                    "Descrição": gerar_anuncio_ia(nome_exibicao),
                     "Custo (R$)": custo_total,
                     "Preço Venda (R$)": preco_venda
                 })
@@ -77,19 +90,15 @@ if st.button("Gerar Catálogo"):
             st.download_button("📥 Baixar Excel", buffer, f"catalogo_{nome_lote}.xlsx", "application/vnd.ms-excel")
             
             # Layout em Cartões
-            # Layout em Cartões com renderização via HTML (mais robusta)
             st.subheader("Catálogo Gerado")
             for _, row in df.iterrows():
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([1, 2, 1])
                     with c1:
-                        # Usamos markdown com HTML para forçar o carregamento da imagem
-                        st.markdown(
-                            f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 10px;">', 
-                            unsafe_allow_html=True
-                        )
+                        # Usando a nova URL mais estável da Pollinations
+                        st.image(row["Imagem"], use_container_width=True)
                     with c2:
-                        st.write(f"### {row['Produto']}")
+                        st.write(f"### {row['Nome_Exibicao']}")
                         st.write(row['Descrição'])
                     with c3:
                         st.metric("Custo", f"R$ {row['Custo (R$)']:.2f}")
