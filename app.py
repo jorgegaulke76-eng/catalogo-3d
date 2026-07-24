@@ -5,12 +5,14 @@ st.set_page_config(page_title="Gerador Alphafest", layout="wide")
 
 # Configura a chave
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
-genai.configure(api_key=api_key)
+
+# Configuração crítica para forçar a API v1 e evitar o erro v1beta
+genai.configure(api_key=api_key, transport="rest") 
 
 def gerar_anuncio(nome_produto):
     try:
-        # Usamos o modelo 'gemini-1.5-flash-latest', que é o mais estável atualmente
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # Usamos o modelo 'gemini-1.5-flash'
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = f"""Atue como copywriter da Alphafest. Escreva um anúncio de vendas 
         persuasivo para Mercado Livre sobre: {nome_produto}. 
