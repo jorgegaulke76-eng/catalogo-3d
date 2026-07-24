@@ -1,52 +1,89 @@
 import streamlit as st
+import pandas as pd
+import os
+import base64
+from PIL import Image, ImageDraw, ImageFont
 from groq import Groq
-import urllib.parse
+from datetime import datetime
+import io
 
-st.set_page_config(page_title="Gerador Alphafest Pro", layout="wide")
+# --- CONFIGURAÇÕES ---
+# Coloque sua chave no painel "Secrets" do Streamlit como: GROQ_API_KEY
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+MARCA_FABRICANTE = "ALPHAFEST ITATIBA"
+CUSTO_EMBALAGEM = 1.50
 
-# Configuração da Chave
-if "GROQ_API_KEY" not in st.secrets:
-    st.error("Configure a chave GROQ_API_KEY nos Settings > Secrets.")
-    st.stop()
+# --- FUNÇÕES DE LÓGICA ---
+def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexidade):
+    custo_filamento = (peso_g / 1000) * preco_kg
+    custo_operacional = (custo_hora * tempo_h) * complexidade
+    custo_total = custo_filamento + custo_operacional + CUSTO_EMBALAGEM
+    preco_venda = custo_total * (1 + (margem_lucro / 100))
+    return round(custo_total, 2), round(preco_venda, 2)
 
-groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-def gerar_anuncio_correto(nome_produto):
-    # Prompt FORÇADO para focar no produto e não na impressora
-    prompt_sistema = """Você é o copywriter da ALPHAFEST ITATIBA.
-    REGRA 1: Você NUNCA vende a impressora. Você vende a PEÇA final impressa em 3D.
-    REGRA 2: Destaque que a peça foi fabricada pela Alphafest com alta precisão (Bambu Lab A1).
-    REGRA 3: O texto deve ser profissional, pronto para o Mercado Livre.
-    REGRA 4: Inclua: Título, Descrição, Características e Preço sugerido."""
-    
+def gerar_anuncio_ia(nome_produto):
     try:
-        response = groq_client.chat.completions.create(
+        response = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": prompt_sistema},
-                {"role": "user", "content": f"Crie um anúncio de venda para a peça impressa em 3D: {nome_produto}"}
+                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças impressas em 3D. Foque na qualidade e no design. Máximo de 3 parágrafos."},
+                {"role": "user", "content": f"Crie um anúncio de vendas para: {nome_produto}"}
             ],
             model="llama-3.1-8b-instant",
         )
         return response.choices[0].message.content
-    except Exception as e:
-        return f"Erro: {str(e)}"
+    except:
+        return "Peça 3D de alta qualidade, fabricada com precisão pela Alphafest."
 
-st.title("📦 Gerador de Catálogo Alphafest")
-nome_produto = st.text_input("Digite o nome ou link do produto:")
+# --- INTERFACE ---
+st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
+st.title(f"📦 {MARCA_FABRICANTE} - Gerador de Catálogo")
 
-if st.button("Gerar Anúncio"):
-    if nome_produto:
-        col1, col2 = st.columns([1, 1])
-        
-        with col1:
-            with st.spinner("Gerando anúncio focado no produto..."):
-                st.markdown(gerar_anuncio_correto(nome_produto))
-        
-        with col2:
-            # Corrigindo a exibição da imagem
-            nome_limpo = nome_produto.split('/')[-1].replace('-', ' ').split('?')[0]
-            # Usando uma URL de imagem que é mais compatível com navegadores
-            st.write("### Imagem do Produto")
-            st.image(f"https://pollinations.ai/p/{urllib.parse.quote(nome_limpo)}?width=800&height=800&seed=1")
+with st.sidebar:
+    st.header("Configurações")
+    preco_kg = st.number_input("Preço Kg Filamento (R$)", value=90.00)
+    margem = st.number_input("Margem Lucro (%)", value=200.0)
+    custo_hora = st.number_input("Custo Máquina/Hora (R$)", value=1.10)
+    complexidade = st.slider("Fator Complexidade", 1.0, 2.0, 1.0)
+    
+nome_lote = st.text_input("Nome do Lote (Ex: Natal, Pais):", "Lote Geral")
+links_input = st.text_area("Cole os nomes ou links dos produtos (um por linha):")
+
+if st.button("Gerar Catálogo"):
+    if not links_input:
+        st.warning("Insira ao menos um produto!")
     else:
-        st.warning("Digite algo primeiro.")
+        linhas = links_input.split('\n')
+        dados_catalogo = []
+        
+        progress = st.progress(0)
+        for i, item in enumerate(linhas):
+            if not item.strip(): continue
+            
+            # Simulação de extração de dados (pode substituir pela sua lógica de scraping)
+            nome = item.strip()
+            # Valores fictícios para exemplo (no seu script original eram calculados do site)
+            peso, tempo = 100.0, 2.0 
+            
+            custo_total, preco_venda = calcular_preco(peso, tempo, preco_kg, margem, custo_hora, complexidade)
+            descricao = gerar_anuncio_ia(nome)
+            
+            dados_catalogo.append({
+                "Codigo": f"MW{i+1:03d}",
+                "Produto": nome,
+                "Descrição": descricao,
+                "Custo (R$)": custo_total,
+                "Preço Venda (R$)": preco_venda
+            })
+            progress.progress((i + 1) / len(linhas))
+
+        # --- EXPORTAÇÃO ---
+        df = pd.DataFrame(dados_catalogo)
+        
+        # Excel
+        buffer = io.BytesIO()
+        df.to_excel(buffer, index=False)
+        st.download_button("📥 Baixar Excel", buffer, f"catalogo_{nome_lote}.xlsx", "application/vnd.ms-excel")
+        
+        # Exibição
+        st.table(df)
+        st.success("Catálogo gerado com sucesso!")
