@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import io
 import requests
-from bs4 import BeautifulSoup
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
@@ -11,17 +10,15 @@ groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a foto oficial da página do produto."""
+    """Busca a foto oficial usando a API do Microlink (robusta para sites dinâmicos)."""
     try:
-        # Define um cabeçalho para parecer um navegador real
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # Busca a tag 'og:image' que guarda a foto principal do site
-        meta_img = soup.find('meta', property='og:image')
-        if meta_img:
-            return meta_img['content']
-        return None # Retorna vazio se não achar
+        api_url = f"https://api.microlink.io?url={url}"
+        response = requests.get(api_url)
+        data = response.json()
+        # Tenta pegar a imagem principal do produto
+        if 'data' in data and 'image' in data['data']:
+            return data['data']['image']['url']
+        return None
     except:
         return None
 
@@ -70,13 +67,13 @@ if st.button("Gerar Catálogo"):
         linhas = links_input.split('\n')
         dados_catalogo = []
         
-        with st.spinner("Buscando fotos originais e gerando dados..."):
+        with st.spinner("Buscando fotos oficiais e gerando dados..."):
             for i, item in enumerate(linhas):
                 if not item.strip(): continue
                 link = item.strip()
                 
                 nome_exibicao = extrair_nome_do_link(link)
-                # A mágica acontece aqui: busca a foto real do link
+                # A mágica agora é feita pela API do Microlink
                 foto_url = obter_imagem_original(link)
                 
                 peso, tempo = 100.0, 2.0 
