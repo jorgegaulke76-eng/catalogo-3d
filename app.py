@@ -1,8 +1,10 @@
 import streamlit as st
 import google.generativeai as genai
 
-# Configuração
-st.set_page_config(page_title="Catálogo 3D - Alphafest", layout="wide")
+# Configuração da página
+st.set_page_config(page_title="Gerador Alphafest", layout="wide")
+
+# Puxa a chave da API
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
 
 if api_key:
@@ -10,26 +12,20 @@ if api_key:
 
 def gerar_anuncio(nome_produto):
     try:
-        # Busca a lista real de modelos autorizados para sua chave
-        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        if not models:
-            return "Erro: Nenhum modelo disponível para esta chave."
-        
-        # Pega o primeiro modelo que NÃO seja de visão (usamos o primeiro da lista retornada pelo Google)
-        modelo_escolhido = models[0]
-        model = genai.GenerativeModel(modelo_escolhido)
+        # Forçamos o uso do modelo 1.5-flash, que é o padrão de mercado mais estável
+        # Usamos o caminho completo para garantir que o sistema não tente adivinhar
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = f"""
-        Você é um copywriter de elite da Alphafest (fundada por Anna Lucia Zepelini).
-        Escreva um anúncio de vendas persuasivo para Mercado Livre sobre: {nome_produto}.
+        Atue como um copywriter da Alphafest (fundada por Anna Lucia Zepelini).
+        Escreva um anúncio de vendas persuasivo para o Mercado Livre sobre: {nome_produto}.
         Destaque: PLA de alta qualidade, precisão da Bambu Lab A1, acabamento impecável.
         Estrutura: Título chamativo, introdução, 5 benefícios (bullet points), ficha técnica.
         """
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"Erro: {str(e)}"
+        return f"Erro na IA: {str(e)}"
 
 # --- INTERFACE ---
 st.title("📦 Gerador de Catálogo - Alphafest 3D")
@@ -39,6 +35,6 @@ if st.button("Gerar Anúncio"):
     if not api_key:
         st.warning("Configure a chave da API no 'Manage App'.")
     else:
-        with st.spinner("Gerando com modelo automático..."):
+        with st.spinner("Gerando anúncio..."):
             texto = gerar_anuncio(nome_produto)
             st.info(texto)
