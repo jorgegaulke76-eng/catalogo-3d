@@ -82,15 +82,18 @@ if st.button("Gerar Catálogo"):
             st.download_button("📥 Baixar Excel", buffer, f"catalogo_{nome_lote}.xlsx", "application/vnd.ms-excel")
             
             # Tabela Exibição
+            # Tabela Exibição com foco em visibilidade
             st.subheader("Catálogo Gerado")
             st.dataframe(
                 df,
                 column_config={
-                    "Imagem": st.column_config.ImageColumn("Prévia", width="medium"),
-                    "Custo (R$)": st.column_config.NumberColumn(format="R$ %.2f"),
-                    "Preço Venda (R$)": st.column_config.NumberColumn(format="R$ %.2f"),
+                    "Imagem": st.column_config.ImageColumn("Prévia", width="large"), # Aumentei para 'large'
+                    "Codigo": st.column_config.TextColumn("Código", width="small"),
+                    "Custo (R$)": st.column_config.NumberColumn(format="R$ %.2f", width="small"),
+                    "Preço Venda (R$)": st.column_config.NumberColumn(format="R$ %.2f", width="small"),
                 },
                 hide_index=True,
-                use_container_width=True
+                use_container_width=True,
+                height=400 # Fixei a altura para garantir que a imagem tenha espaço para renderizar
             )
             st.success("Catálogo gerado com sucesso!")
