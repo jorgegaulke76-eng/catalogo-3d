@@ -16,7 +16,7 @@ else:
 
 def raspar_makerworld(url):
     try:
-        # Adicionado um 'disfarce' de navegador para o MakerWorld não bloquear a imagem
+        # Disfarce de navegador
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
@@ -27,23 +27,35 @@ def raspar_makerworld(url):
         imagem = soup.find("meta", property="og:image")
         titulo = soup.find("meta", property="og:title")
         
-        url_imagem = imagem["content"] if imagem else "https://via.placeholder.com/400?text=Sem+Imagem"
+        # Se o MakerWorld bloquear, usamos um ícone de fallback bonito para o card não quebrar
+        url_imagem = imagem["content"] if imagem else "https://cdn-icons-png.flaticon.com/512/3063/3063822.png"
         texto_titulo = titulo["content"] if titulo else "Produto 3D"
         
         return url_imagem, texto_titulo
     except Exception:
-        return "https://via.placeholder.com/400?text=Erro+ao+buscar", "Produto"
+        return "https://cdn-icons-png.flaticon.com/512/3063/3063822.png", "Produto"
 
 def gerar_anuncio(nome_produto):
     try:
-        # 1. Pede para o Google a lista oficial de modelos liberados para a sua chave
         modelos_disponiveis = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
-        if not modelos_disponiveis:
-            return "Erro: Nenhum modelo de IA encontrado para esta chave no momento."
-            
-        # 2. Escolhe o primeiro modelo válido da lista automaticamente
-        modelo_escolhido = modelos_disponiveis[0] 
+        # O Google tentou empurrar a versão 2.5 bloqueada. Vamos forçar a 1.5 que é livre e estável.
+        modelo_escolhido = None
+        for m in modelos_disponiveis:
+            if 'gemini-1.5-flash' in m:
+                modelo_escolhido = m
+                break
+        
+        # Se não achar o flash, tenta o pro
+        if not modelo_escolhido:
+            for m in modelos_disponiveis:
+                if 'gemini-1.5-pro' in m:
+                    modelo_escolhido = m
+                    break
+                    
+        if not modelo_escolhido:
+            return "Erro: Nenhum modelo 1.5 liberado para esta chave no momento."
+        
         modelo = genai.GenerativeModel(modelo_escolhido)
         
         prompt = f"""
@@ -70,7 +82,7 @@ if st.button("Gerar Card do Produto"):
     if not api_key:
         st.warning("Configure a chave da API no 'Manage App' do Streamlit antes de continuar.")
     else:
-        with st.spinner("Buscando dados e gerando descrição com a IA liberada..."):
+        with st.spinner("Buscando dados e conectando à IA (versão 1.5)..."):
             img_url, titulo = raspar_makerworld(url_input)
             texto_vendas = gerar_anuncio(titulo)
             
@@ -78,6 +90,7 @@ if st.button("Gerar Card do Produto"):
             col1, col2 = st.columns([1, 2])
             
             with col1:
+                # O parâmetro width garante que a imagem fique bem enquadrada
                 st.image(img_url, caption=titulo, use_column_width=True)
                 
             with col2:
