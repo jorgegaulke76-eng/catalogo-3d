@@ -2,62 +2,51 @@ import streamlit as st
 from groq import Groq
 import urllib.parse
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Gerador Alphafest Pro", layout="wide")
 
-# --- INICIALIZAÇÃO DOS CLIENTES ---
-# Certifique-se de que GROQ_API_KEY esteja configurada no "Secrets" do Streamlit
-try:
-    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-except Exception as e:
-    st.error("Erro ao carregar chave de API. Verifique os 'Secrets' no seu painel.")
+# Configuração da Chave
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("Configure a chave GROQ_API_KEY nos Settings > Secrets.")
     st.stop()
 
-# --- FUNÇÃO DE TEXTO (GROQ) ---
-def gerar_anuncio_groq(nome_produto):
+groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+def gerar_anuncio_correto(nome_produto):
+    # Prompt FORÇADO para focar no produto e não na impressora
+    prompt_sistema = """Você é o copywriter da ALPHAFEST ITATIBA.
+    REGRA 1: Você NUNCA vende a impressora. Você vende a PEÇA final impressa em 3D.
+    REGRA 2: Destaque que a peça foi fabricada pela Alphafest com alta precisão (Bambu Lab A1).
+    REGRA 3: O texto deve ser profissional, pronto para o Mercado Livre.
+    REGRA 4: Inclua: Título, Descrição, Características e Preço sugerido."""
+    
     try:
         response = groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos, profissionais, focados em venda e qualidade da Bambu Lab A1."},
-                {"role": "user", "content": f"Crie um anúncio de vendas persuasivo para o produto: {nome_produto}"}
+                {"role": "system", "content": prompt_sistema},
+                {"role": "user", "content": f"Crie um anúncio de venda para a peça impressa em 3D: {nome_produto}"}
             ],
             model="llama-3.1-8b-instant",
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"Erro ao gerar texto: {str(e)}"
+        return f"Erro: {str(e)}"
 
-# --- FUNÇÃO DE IMAGEM (POLLINATIONS) ---
-def gerar_url_imagem(nome_produto):
-    # Extrai apenas o nome do produto caso seja um link do MakerWorld
-    # Ex: .../models/123-nome-do-produto -> 'nome do produto'
-    nome_limpo = nome_produto.split('/')[-1].replace('-', ' ').split('?')[0]
-    
-    # Cria prompt profissional para IA de imagem
-    prompt = f"{nome_limpo} 3d printed action figure high quality product photography studio white background"
-    
-    # Codifica a URL corretamente para evitar erros de caracteres especiais
-    encoded_prompt = urllib.parse.quote(prompt)
-    
-    return f"https://pollinations.ai/p/{encoded_prompt}?width=1024&height=1024&nologo=true&seed=42"
-
-# --- INTERFACE ---
 st.title("📦 Gerador de Catálogo Alphafest")
 nome_produto = st.text_input("Digite o nome ou link do produto:")
 
-if st.button("Gerar Catálogo Completo"):
-    if not nome_produto:
-        st.warning("Por favor, digite o nome do produto.")
-    else:
-        # Colunas para organizar o conteúdo
+if st.button("Gerar Anúncio"):
+    if nome_produto:
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            with st.spinner("Gerando texto com GROQ..."):
-                texto = gerar_anuncio_groq(nome_produto)
-                st.markdown(texto)
+            with st.spinner("Gerando anúncio focado no produto..."):
+                st.markdown(gerar_anuncio_correto(nome_produto))
         
         with col2:
-            with st.spinner("Preparando imagem..."):
-                imagem_url = gerar_url_imagem(nome_produto)
-                st.image(imagem_url, caption=f"Imagem sugerida para: {nome_produto}", use_container_width=True)
+            # Corrigindo a exibição da imagem
+            nome_limpo = nome_produto.split('/')[-1].replace('-', ' ').split('?')[0]
+            # Usando uma URL de imagem que é mais compatível com navegadores
+            st.write("### Imagem do Produto")
+            st.image(f"https://pollinations.ai/p/{urllib.parse.quote(nome_limpo)}?width=800&height=800&seed=1")
+    else:
+        st.warning("Digite algo primeiro.")
