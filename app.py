@@ -10,12 +10,10 @@ groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a foto oficial usando a API do Microlink (robusta para sites dinâmicos)."""
     try:
         api_url = f"https://api.microlink.io?url={url}"
         response = requests.get(api_url)
         data = response.json()
-        # Tenta pegar a imagem principal do produto
         if 'data' in data and 'image' in data['data']:
             return data['data']['image']['url']
         return None
@@ -46,6 +44,37 @@ def gerar_anuncio_ia(nome_produto):
     except:
         return "Peça 3D Alphafest de alta precisão."
 
+def gerar_html_catalogo(df, lote):
+    """Gera um HTML bonito para impressão."""
+    html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 40px; color: #333; }}
+            .header {{ text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }}
+            .card {{ border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 10px; display: flex; align-items: center; }}
+            .card img {{ width: 200px; height: 200px; object-fit: cover; border-radius: 10px; margin-right: 20px; }}
+            .info {{ flex: 1; }}
+            .price {{ font-weight: bold; color: #d32f2f; font-size: 1.2em; }}
+        </style>
+    </head>
+    <body>
+        <div class="header"><h1>Catálogo Alphafest: {lote}</h1></div>
+    """
+    for _, row in df.iterrows():
+        html += f"""
+        <div class="card">
+            <img src="{row['Imagem']}">
+            <div class="info">
+                <h2>{row['Nome_Exibicao']}</h2>
+                <p>{row['Descrição']}</p>
+                <p class="price">Preço: R$ {row['Preço Venda (R$)']:.2f}</p>
+            </div>
+        </div>
+        """
+    html += "</body></html>"
+    return html
+
 # --- INTERFACE ---
 st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
 st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
@@ -67,16 +96,13 @@ if st.button("Gerar Catálogo"):
         linhas = links_input.split('\n')
         dados_catalogo = []
         
-        with st.spinner("Buscando fotos oficiais e gerando dados..."):
-            for i, item in enumerate(linhas):
+        with st.spinner("Gerando catálogo profissional..."):
+            for item in linhas:
                 if not item.strip(): continue
                 link = item.strip()
-                
                 nome_exibicao = extrair_nome_do_link(link)
                 foto_url = obter_imagem_original(link)
-                
-                peso, tempo = 100.0, 2.0 
-                custo_total, preco_venda = calcular_preco(peso, tempo, preco_kg, margem, custo_hora, complexidade)
+                custo_total, preco_venda = calcular_preco(100.0, 2.0, preco_kg, margem, custo_hora, complexidade)
                 
                 dados_catalogo.append({
                     "Nome_Exibicao": nome_exibicao,
@@ -88,31 +114,32 @@ if st.button("Gerar Catálogo"):
 
             df = pd.DataFrame(dados_catalogo)
             
-            # Botão Excel
-            buffer = io.BytesIO()
-            df.to_excel(buffer, index=False)
-            st.download_button("📥 Baixar Excel", buffer, f"catalogo_{nome_lote}.xlsx", "application/vnd.ms-excel")
+            # --- BOTÕES DE DOWNLOAD ---
+            col1, col2 = st.columns(2)
             
-            # Layout em Cartões
-            st.subheader("Catálogo Gerado")
+            # Excel
+            buffer_excel = io.BytesIO()
+            df.to_excel(buffer_excel, index=False)
+            col1.download_button("📊 Baixar Excel", buffer_excel, f"catalogo_{nome_lote}.xlsx")
+            
+            # HTML para Impressão
+            html_content = gerar_html_catalogo(df, nome_lote)
+            col2.download_button("🖨️ Baixar Catálogo para Impressão (HTML)", html_content, f"catalogo_{nome_lote}.html", "text/html")
+            
+            # Exibição
             for _, row in df.iterrows():
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([1, 2, 1])
                     with c1:
-                        if row["Imagem"]:
-                            st.markdown(f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 10px;">', unsafe_allow_html=True)
-                        else:
-                            st.warning("Foto não encontrada.")
+                        if row["Imagem"]: st.markdown(f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 10px;">', unsafe_allow_html=True)
                     with c2:
                         st.write(f"### {row['Nome_Exibicao']}")
                         st.write(row['Descrição'])
                     with c3:
-                        st.metric("Custo", f"R$ {row['Custo (R$)']:.2f}")
                         st.metric("Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
                     
-                    # Campo para copiar texto social
                     st.divider()
-                    texto_social = f"🚀 {row['Nome_Exibicao']} - Alphafest Itatiba\n\n{row['Descrição']}\n\n💰 Apenas R$ {row['Preço Venda (R$)']:.2f}\n📦 Encomende a sua agora!\n\n#AlphafestItatiba #Impressão3D #3DPrinting #Dummy13 #Itatiba"
-                    st.text_area("Copie para WhatsApp/Instagram:", value=texto_social, height=120, key=f"text_{row['Nome_Exibicao']}")
+                    texto_social = f"🚀 {row['Nome_Exibicao']} - Alphafest Itatiba\n\n{row['Descrição']}\n\n💰 Apenas R$ {row['Preço Venda (R$)']:.2f}\n📦 Encomende a sua agora!"
+                    st.text_area("Copie p/ Redes:", value=texto_social, height=100, key=f"text_{row['Nome_Exibicao']}")
             
             st.success("Catálogo gerado com sucesso!")
