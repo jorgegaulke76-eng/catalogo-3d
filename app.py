@@ -3,19 +3,20 @@ import requests
 
 st.set_page_config(page_title="Gerador Alphafest", layout="wide")
 
+# Puxa a chave da API dos secrets do Streamlit
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
 
 def gerar_anuncio_direto(nome_produto):
     if not api_key:
-        return "Erro: Chave não encontrada nos Secrets."
+        return "Erro: Chave não encontrada nos Secrets do Streamlit."
     
-    # URL de acesso direto ao modelo (não consulta lista, vai direto ao ponto)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # Usando a versão v1 (estável) da API
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     headers = {'Content-Type': 'application/json'}
     data = {
         "contents": [{
-            "parts": [{"text": f"Escreva um anúncio de vendas para: {nome_produto}. Destaque: PLA, Bambu Lab A1."}]
+            "parts": [{"text": f"Atue como copywriter da Alphafest (fundada por Anna Lucia Zepelini). Escreva um anúncio de vendas persuasivo para Mercado Livre sobre: {nome_produto}. Destaque: PLA de alta qualidade, precisão da Bambu Lab A1, acabamento impecável. Estrutura: Título chamativo, introdução, 5 benefícios (bullet points) e ficha técnica."}]
         }]
     }
     
@@ -23,18 +24,24 @@ def gerar_anuncio_direto(nome_produto):
         response = requests.post(url, headers=headers, json=data)
         result = response.json()
         
-        # Se o Google retornar erro, vamos exibir o erro exato
+        # Verifica se o Google retornou algum erro técnico
         if 'error' in result:
-            return f"ERRO API: {result['error']['message']}"
+            return f"ERRO DO GOOGLE: {result['error']['message']}"
             
+        # Tenta extrair o texto da resposta
         return result['candidates'][0]['content']['parts'][0]['text']
+        
     except Exception as e:
-        return f"Erro na execução: {str(e)}"
+        return f"Erro de processamento: {str(e)}"
 
 # --- INTERFACE ---
 st.title("📦 Gerador de Catálogo - Alphafest 3D")
-nome_produto = st.text_input("Digite o nome do produto:")
+nome_produto = st.text_input("Digite o nome ou link do produto:")
 
 if st.button("Gerar Anúncio"):
-    texto = gerar_anuncio_direto(nome_produto)
-    st.info(texto)
+    if not nome_produto:
+        st.warning("Por favor, digite o nome do produto.")
+    else:
+        with st.spinner("Gerando anúncio profissional..."):
+            texto = gerar_anuncio_direto(nome_produto)
+            st.info(texto)
