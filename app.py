@@ -1,10 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 
-# Configuração da página
 st.set_page_config(page_title="Gerador Alphafest", layout="wide")
-
-# Puxa a chave da API
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
 
 if api_key:
@@ -12,22 +9,23 @@ if api_key:
 
 def gerar_anuncio(nome_produto):
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        # A MÁGICA: Em vez de escrever o nome, pedimos ao servidor para listar o que ele aceita
+        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # Filtra para pegar apenas os modelos que funcionam para texto (evita modelos de imagem/vision)
+        text_models = [m for m in models if 'vision' not in m and 'embedding' not in m]
+        
+        if not text_models:
+            return f"Erro: Nenhum modelo de texto encontrado. Modelos disponíveis na conta: {models}"
+            
+        # Pega o primeiro modelo válido da lista automática
+        model = genai.GenerativeModel(text_models[0])
         
         prompt = f"""
-        Atue como um copywriter de elite da Alphafest (fundada por Anna Lucia Zepelini).
-        Escreva um anúncio de vendas persuasivo para o Mercado Livre sobre o produto: {nome_produto}.
-        
-        Destaque sempre:
-        - Fabricação em PLA de alta qualidade (resistência e durabilidade).
-        - Impressão em impressora Bambu Lab A1 (precisão milimétrica e acabamento impecável).
-        
-        Estrutura obrigatória do anúncio:
-        1. Título chamativo para Mercado Livre.
-        2. Breve introdução focada na marca Alphafest.
-        3. 5 Benefícios em bullet points (ex: resistente, design exclusivo, acabamento premium, etc).
-        4. Ficha técnica (Material, Tecnologia de Impressão, Marca).
-        5. Chamada para ação e garantia.
+        Você é um copywriter da Alphafest (fundada por Anna Lucia Zepelini).
+        Escreva um anúncio de vendas persuasivo para o Mercado Livre sobre: {nome_produto}.
+        Destaque: PLA de alta qualidade, precisão da Bambu Lab A1, acabamento impecável.
+        Estrutura: Título, introdução, 5 benefícios (bullet points), ficha técnica.
         """
         response = model.generate_content(prompt)
         return response.text
@@ -40,8 +38,8 @@ nome_produto = st.text_input("Digite o nome do produto:")
 
 if st.button("Gerar Anúncio"):
     if not api_key:
-        st.warning("Configure a chave da API no 'Manage App' do seu aplicativo no Streamlit.")
+        st.warning("Configure a chave da API no 'Manage App'.")
     else:
-        with st.spinner("Gerando anúncio de alta performance..."):
+        with st.spinner("Conectando ao modelo disponível..."):
             texto = gerar_anuncio(nome_produto)
             st.info(texto)
