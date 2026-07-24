@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import requests
+import re  # Nova importação necessária
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
@@ -21,8 +22,11 @@ def obter_imagem_original(url):
         return None
 
 def extrair_nome_do_link(link):
-    nome = link.split('/')[-1].split('?')[0].replace('-', ' ')
-    return nome.title()
+    """Extrai o nome do produto, removendo o ID numérico inicial."""
+    parte_final = link.split('/')[-1].split('?')[0]
+    # Remove a sequência de números no início seguida de hífen (ex: "2894633-")
+    nome = re.sub(r'^\d+-', '', parte_final)
+    return nome.replace('-', ' ').title()
 
 def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexidade):
     custo_filamento = (peso_g / 1000) * preco_kg
@@ -45,7 +49,6 @@ def gerar_anuncio_ia(nome_produto):
         return "Peça 3D Alphafest de alta precisão."
 
 def gerar_html_catalogo(df, lote):
-    """Gera um HTML bonito para impressão."""
     html = f"""
     <html>
     <head>
@@ -116,13 +119,10 @@ if st.button("Gerar Catálogo"):
             
             # --- BOTÕES DE DOWNLOAD ---
             col1, col2 = st.columns(2)
-            
-            # Excel
             buffer_excel = io.BytesIO()
             df.to_excel(buffer_excel, index=False)
             col1.download_button("📊 Baixar Excel", buffer_excel, f"catalogo_{nome_lote}.xlsx")
             
-            # HTML para Impressão
             html_content = gerar_html_catalogo(df, nome_lote)
             col2.download_button("🖨️ Baixar Catálogo para Impressão (HTML)", html_content, f"catalogo_{nome_lote}.html", "text/html")
             
