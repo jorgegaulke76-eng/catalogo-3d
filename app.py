@@ -1,17 +1,19 @@
 import streamlit as st
 import google.generativeai as genai
+import os
 
 st.set_page_config(page_title="Gerador Alphafest", layout="wide")
 
 # Configura a chave
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
 
-# Configuração crítica para forçar a API v1 e evitar o erro v1beta
-genai.configure(api_key=api_key, transport="rest") 
+# FORÇANDO O USO DA VERSÃO V1 ESTÁVEL
+genai.configure(api_key=api_key)
+client = genai.Client(api_version='v1') 
 
 def gerar_anuncio(nome_produto):
     try:
-        # Usamos o modelo 'gemini-1.5-flash'
+        # Usamos o modelo 'gemini-1.5-flash' com a versão estável
         model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = f"""Atue como copywriter da Alphafest. Escreva um anúncio de vendas 
