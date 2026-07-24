@@ -77,12 +77,17 @@ if st.button("Gerar Catálogo"):
             st.download_button("📥 Baixar Excel", buffer, f"catalogo_{nome_lote}.xlsx", "application/vnd.ms-excel")
             
             # Layout em Cartões
+            # Layout em Cartões com renderização via HTML (mais robusta)
             st.subheader("Catálogo Gerado")
             for _, row in df.iterrows():
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([1, 2, 1])
                     with c1:
-                        st.image(row['Imagem'], use_container_width=True)
+                        # Usamos markdown com HTML para forçar o carregamento da imagem
+                        st.markdown(
+                            f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 10px;">', 
+                            unsafe_allow_html=True
+                        )
                     with c2:
                         st.write(f"### {row['Produto']}")
                         st.write(row['Descrição'])
