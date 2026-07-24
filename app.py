@@ -73,7 +73,6 @@ if st.button("Gerar Catálogo"):
                 link = item.strip()
                 
                 nome_exibicao = extrair_nome_do_link(link)
-                # A mágica agora é feita pela API do Microlink
                 foto_url = obter_imagem_original(link)
                 
                 peso, tempo = 100.0, 2.0 
@@ -110,5 +109,10 @@ if st.button("Gerar Catálogo"):
                     with c3:
                         st.metric("Custo", f"R$ {row['Custo (R$)']:.2f}")
                         st.metric("Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
+                    
+                    # Campo para copiar texto social
+                    st.divider()
+                    texto_social = f"🚀 {row['Nome_Exibicao']} - Alphafest Itatiba\n\n{row['Descrição']}\n\n💰 Apenas R$ {row['Preço Venda (R$)']:.2f}\n📦 Encomende a sua agora!\n\n#AlphafestItatiba #Impressão3D #3DPrinting #Dummy13 #Itatiba"
+                    st.text_area("Copie para WhatsApp/Instagram:", value=texto_social, height=120, key=f"text_{row['Nome_Exibicao']}")
             
             st.success("Catálogo gerado com sucesso!")
