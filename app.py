@@ -5,15 +5,11 @@ import urllib.parse
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
-# Lembre-se: GROQ_API_KEY deve estar em Settings > Secrets
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- FUNÇÕES ---
-
 def gerar_url_imagem(nome_produto):
-    """Gera URL simplificada para garantir carregamento visual."""
     nome_limpo = nome_produto.split('/')[-1].replace('-', ' ').split('?')[0]
-    # Prompt super curto para garantir compatibilidade total
     prompt = f"{nome_limpo} 3d printed object"
     return f"https://pollinations.ai/p/{urllib.parse.quote(prompt)}?nologo=true"
 
@@ -66,7 +62,6 @@ if st.button("Gerar Catálogo"):
                 custo_total, preco_venda = calcular_preco(peso, tempo, preco_kg, margem, custo_hora, complexidade)
                 
                 dados_catalogo.append({
-                    "Codigo": f"MW{i+1:03d}",
                     "Produto": nome,
                     "Imagem": gerar_url_imagem(nome),
                     "Descrição": gerar_anuncio_ia(nome),
@@ -81,25 +76,18 @@ if st.button("Gerar Catálogo"):
             df.to_excel(buffer, index=False)
             st.download_button("📥 Baixar Excel", buffer, f"catalogo_{nome_lote}.xlsx", "application/vnd.ms-excel")
             
-            # Tabela Exibição
-            # Tabela Exibição com foco em visibilidade
-            # --- EXIBIÇÃO PROFISSIONAL EM CARTÕES ---
-        st.subheader("Catálogo Gerado")
-        
-        for _, row in df.iterrows():
-            with st.container(border=True): # Cria um cartão com borda para cada produto
-                c1, c2, c3 = st.columns([1, 2, 1])
-                with c1:
-                    st.image(row['Imagem'], use_container_width=True)
-                with c2:
-                    st.write(f"### {row['Produto']}")
-                    st.write(row['Descrição'])
-                with c3:
-                    st.metric("Custo", f"R$ {row['Custo (R$)']:.2f}")
-                    st.metric("Venda", f"R$ {row['Preço Venda (R$)']:.2f}"),
-                },
-                hide_index=True,
-                use_container_width=True,
-                height=400 # Fixei a altura para garantir que a imagem tenha espaço para renderizar
-            )
+            # Layout em Cartões
+            st.subheader("Catálogo Gerado")
+            for _, row in df.iterrows():
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([1, 2, 1])
+                    with c1:
+                        st.image(row['Imagem'], use_container_width=True)
+                    with c2:
+                        st.write(f"### {row['Produto']}")
+                        st.write(row['Descrição'])
+                    with c3:
+                        st.metric("Custo", f"R$ {row['Custo (R$)']:.2f}")
+                        st.metric("Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
+            
             st.success("Catálogo gerado com sucesso!")
