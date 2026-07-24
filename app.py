@@ -13,7 +13,7 @@ def gerar_anuncio_groq(nome_produto):
                 {"role": "system", "content": "Você é um especialista em marketing da Alphafest 3D."},
                 {"role": "user", "content": f"Escreva um anúncio de vendas persuasivo para Mercado Livre sobre: {nome_produto}. Destaque: PLA de alta qualidade, precisão da Bambu Lab A1, acabamento impecável. Estrutura: Título, introdução, 5 benefícios (bullet points) e ficha técnica."}
             ],
-            model="llama3-8b-8192", # Modelo gratuito e super rápido
+            model="llama-3.1-8b-instant", # Modelo atualizado e gratuito
         )
         return response.choices[0].message.content
     except Exception as e:
