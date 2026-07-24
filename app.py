@@ -35,7 +35,7 @@ def gerar_anuncio(nome_produto):
     if not api_key:
         return "Erro: Chave da API não configurada."
     
-    modelo = genai.GenerativeModel('gemini-1.5-flash')
+    modelo = genai.GenerativeModel('gemini-1.5-flash-latest')
     prompt = f"""
     Atue como um vendedor Elite do Mercado Livre. Crie uma descrição de vendas persuasiva para: {nome_produto}.
     Destaque que a peça é fabricada em PLA de alta qualidade, garantindo resistência. Mencione também que o produto é feito utilizando uma impressora Bambu Lab A1, o que garante precisão milimétrica e um acabamento impecável.
