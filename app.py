@@ -21,9 +21,10 @@ def gerar_anuncio_groq(nome_produto):
 
 # A URL do Pollinations gera imagens automaticamente com base no texto
 def gerar_url_imagem(nome_produto):
-    # O Pollinations transforma texto em imagem instantaneamente via URL
+    # Usamos o serviço 'flux' do Pollinations, que é muito mais realista para impressão 3D
     prompt_limpo = nome_produto.replace(" ", "%20")
-    return f"https://pollinations.ai/p/{prompt_limpo}%203d%20printed%20product%20high%20quality%20studio%20lighting?width=1024&height=1024&seed=42"
+    # Adicionamos um estilo de fotografia de produto profissional
+    return f"https://pollinations.ai/p/{prompt_limpo}%203d%20printed%20action%20figure%20high%20quality%20product%20photography%20studio%20white%20background?model=flux&width=1024&height=1024&seed=42"
 
 # --- INTERFACE ---
 st.title("📦 Gerador de Catálogo Alphafest")
