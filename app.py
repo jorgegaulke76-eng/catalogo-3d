@@ -78,12 +78,26 @@ if st.button("Gerar Catálogo"):
 
         # --- EXPORTAÇÃO ---
         df = pd.DataFrame(dados_catalogo)
+       # 1. Adicionamos a coluna de imagem ao DataFrame
+        df['Imagem'] = [gerar_url_imagem(nome) for nome in df['Produto']]
         
-        # Excel
+        # 2. Excel (Download)
         buffer = io.BytesIO()
         df.to_excel(buffer, index=False)
         st.download_button("📥 Baixar Excel", buffer, f"catalogo_{nome_lote}.xlsx", "application/vnd.ms-excel")
         
-        # Exibição
-        st.table(df)
+        # 3. Exibição da Tabela com Imagens
+        st.subheader("Catálogo Gerado")
+        st.dataframe(
+            df,
+            column_config={
+                "Imagem": st.column_config.ImageColumn(
+                    "Prévia", help="Imagem gerada pela IA", width="medium"
+                ),
+                "Custo (R$)": st.column_config.NumberColumn(format="R$ %.2f"),
+                "Preço Venda (R$)": st.column_config.NumberColumn(format="R$ %.2f"),
+            },
+            hide_index=True,
+            use_container_width=True
+        )
         st.success("Catálogo gerado com sucesso!")
