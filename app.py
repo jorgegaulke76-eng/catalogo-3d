@@ -3,7 +3,6 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Gerador Alphafest", layout="wide")
 
-# Puxa a chave da API
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
 
 if api_key:
@@ -11,13 +10,17 @@ if api_key:
 
 def gerar_anuncio(nome_produto):
     try:
-        # FORÇAMOS o uso do modelo 'gemini-1.5-flash', que é o padrão atual suportado.
-        # Estamos ignorando a lista automática para evitar o modelo 2.5 que está bloqueado.
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # A MÁGICA: Listamos todos os modelos disponíveis para SUA chave
+        models = [m for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        if not models:
+            return "Erro: Nenhum modelo disponível para esta chave."
+            
+        # Pegamos o primeiro modelo da lista que o Google nos der (seja ele qual for)
+        model = genai.GenerativeModel(models[0].name)
         
         prompt = f"""
-        Você é um copywriter da Alphafest (fundada por Anna Lucia Zepelini).
-        Escreva um anúncio de vendas persuasivo para o Mercado Livre sobre: {nome_produto}.
+        Você é copywriter da Alphafest. Escreva um anúncio persuasivo para Mercado Livre sobre: {nome_produto}.
         Destaque: PLA de alta qualidade, precisão da Bambu Lab A1, acabamento impecável.
         Estrutura: Título chamativo, introdução, 5 benefícios (bullet points), ficha técnica.
         """
@@ -34,6 +37,6 @@ if st.button("Gerar Anúncio"):
     if not api_key:
         st.warning("Configure a chave da API no 'Manage App'.")
     else:
-        with st.spinner("Gerando com modelo 1.5-flash..."):
+        with st.spinner("Conectando ao seu modelo liberado..."):
             texto = gerar_anuncio(nome_produto)
             st.info(texto)
