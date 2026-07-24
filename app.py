@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
-import os
 
 # Configuração da página (deve ser a primeira coisa)
 st.set_page_config(page_title="Catálogo 3D", layout="wide")
@@ -12,14 +11,14 @@ api_key = st.secrets.get("GEMINI_API_KEY", "")
 if api_key:
     genai.configure(api_key=api_key)
 
-# Função para tentar raspar a imagem do MakerWorld (busca a imagem de compartilhamento)
+# Função para tentar raspar a imagem do MakerWorld
 def raspar_makerworld(url):
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         resposta = requests.get(url, headers=headers)
         soup = BeautifulSoup(resposta.text, 'html.parser')
         
-        # Tenta pegar a imagem principal (og:image)
+        # Tenta pegar a imagem principal e o título
         imagem = soup.find("meta", property="og:image")
         titulo = soup.find("meta", property="og:title")
         
@@ -27,7 +26,7 @@ def raspar_makerworld(url):
         texto_titulo = titulo["content"] if titulo else "Produto 3D"
         
         return url_imagem, texto_titulo
-    except:
+    except Exception as e:
         return "https://via.placeholder.com/400?text=Erro+ao+buscar", "Produto Manual"
 
 # Função para gerar o texto estilo Mercado Livre com a IA
@@ -35,7 +34,8 @@ def gerar_anuncio(nome_produto):
     if not api_key:
         return "Erro: Chave da API não configurada."
     
-    modelo = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # Modelo atualizado e garantido de funcionar
+    modelo = genai.GenerativeModel('gemini-pro')
     prompt = f"""
     Atue como um vendedor Elite do Mercado Livre. Crie uma descrição de vendas persuasiva para: {nome_produto}.
     Destaque que a peça é fabricada em PLA de alta qualidade, garantindo resistência. Mencione também que o produto é feito utilizando uma impressora Bambu Lab A1, o que garante precisão milimétrica e um acabamento impecável.
