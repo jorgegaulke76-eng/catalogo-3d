@@ -6,17 +6,21 @@ import google.generativeai as genai
 # Configuração da página
 st.set_page_config(page_title="Catálogo 3D", layout="wide")
 
-# Puxa a chave da API e remove espaços invisíveis por segurança (.strip)
+# Puxa a chave da API
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
 
 if not api_key:
-    st.error("⚠️ Atenção: A chave da API do Google não foi encontrada nas configurações.")
+    st.error("⚠️ Atenção: A chave da API do Google não foi encontrada.")
 else:
     genai.configure(api_key=api_key)
 
 def raspar_makerworld(url):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        # Adicionado um 'disfarce' de navegador para o MakerWorld não bloquear a imagem
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
         resposta = requests.get(url, headers=headers)
         soup = BeautifulSoup(resposta.text, 'html.parser')
         
@@ -32,8 +36,16 @@ def raspar_makerworld(url):
 
 def gerar_anuncio(nome_produto):
     try:
-        # Modelo mais atual e rápido do Google
-        modelo = genai.GenerativeModel('gemini-1.5-flash')
+        # 1. Pede para o Google a lista oficial de modelos liberados para a sua chave
+        modelos_disponiveis = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        if not modelos_disponiveis:
+            return "Erro: Nenhum modelo de IA encontrado para esta chave no momento."
+            
+        # 2. Escolhe o primeiro modelo válido da lista automaticamente
+        modelo_escolhido = modelos_disponiveis[0] 
+        modelo = genai.GenerativeModel(modelo_escolhido)
+        
         prompt = f"""
         Atue como um vendedor Elite do Mercado Livre. Crie uma descrição de vendas persuasiva para: {nome_produto}.
         Destaque que a peça é fabricada em PLA de alta qualidade, garantindo resistência. Mencione também que o produto é feito utilizando uma impressora Bambu Lab A1, o que garante precisão milimétrica e um acabamento impecável.
@@ -47,8 +59,7 @@ def gerar_anuncio(nome_produto):
         resposta = modelo.generate_content(prompt)
         return resposta.text
     except Exception as e:
-        # Se a chave estiver inválida, vai mostrar esta mensagem amigável no lugar da tela vermelha.
-        return f"🚨 Erro do Google: {e}\n\nPor favor, verifique se a sua Chave da API foi copiada corretamente e colada sem espaços extras no Streamlit."
+        return f"🚨 Erro na Geração: {e}"
 
 # --- INTERFACE DO USUÁRIO ---
 st.title("📦 Gerador de Catálogo - Impressão 3D")
@@ -59,7 +70,7 @@ if st.button("Gerar Card do Produto"):
     if not api_key:
         st.warning("Configure a chave da API no 'Manage App' do Streamlit antes de continuar.")
     else:
-        with st.spinner("Buscando dados e gerando descrição..."):
+        with st.spinner("Buscando dados e gerando descrição com a IA liberada..."):
             img_url, titulo = raspar_makerworld(url_input)
             texto_vendas = gerar_anuncio(titulo)
             
