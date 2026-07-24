@@ -1,41 +1,32 @@
 import streamlit as st
 import requests
 
-st.set_page_config(page_title="Gerador Alphafest", layout="wide")
+st.set_page_config(page_title="Diagnóstico API", layout="wide")
 
 api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
 
-def gerar_anuncio_direto(nome_produto):
+def listar_modelos():
     if not api_key:
-        return "Erro: Chave não encontrada."
+        return "Chave não encontrada."
     
-    # MUDANÇA: Usando v1 em vez de v1beta
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
-    
-    headers = {'Content-Type': 'application/json'}
-    data = {
-        "contents": [{
-            "parts": [{"text": f"Atue como copywriter da Alphafest. Escreva um anúncio de vendas persuasivo para o Mercado Livre sobre: {nome_produto}. Destaque: PLA, Bambu Lab A1, acabamento impecável. Estrutura: Título, introdução, 5 benefícios (bullet points), ficha técnica."}]
-        }]
-    }
+    # Este é o link oficial para listar os modelos permitidos
+    url = f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
     
     try:
-        response = requests.post(url, headers=headers, json=data)
-        result = response.json()
+        response = requests.get(url)
+        data = response.json()
         
-        # Verifica se houve erro na resposta do Google
-        if 'error' in result:
-            return f"ERRO DO GOOGLE: {result['error']['message']}"
-            
-        return result['candidates'][0]['content']['parts'][0]['text']
+        if 'models' in data:
+            # Filtra apenas modelos que suportam geração de texto
+            modelos_uteis = [m['name'] for m in data['models'] if 'generateContent' in m.get('supportedMethodNames', [])]
+            return modelos_uteis
+        else:
+            return f"Erro: {data}"
     except Exception as e:
         return f"Erro de conexão: {str(e)}"
 
-# --- INTERFACE ---
-st.title("📦 Gerador de Catálogo - Alphafest 3D")
-nome_produto = st.text_input("Digite o nome do produto:")
-
-if st.button("Gerar Anúncio"):
-    with st.spinner("Conectando ao servidor estável..."):
-        texto = gerar_anuncio_direto(nome_produto)
-        st.info(texto)
+st.title("🔍 Diagnóstico da sua Chave API")
+if st.button("Listar modelos permitidos"):
+    modelos = listar_modelos()
+    st.write("Estes são os nomes dos modelos que sua chave permite usar:")
+    st.write(modelos)
