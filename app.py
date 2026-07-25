@@ -7,7 +7,7 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# Lembre-se de manter sua chave GROQ_API_KEY configurada no Streamlit Cloud
+# Certifique-se de que sua chave GROQ_API_KEY está configurada no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # Rodapé fixo para padronizar todos os anúncios
@@ -16,12 +16,24 @@ RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratu
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a imagem do produto: prioriza link direto ou busca via scraping."""
-    # 1. Verifica se o link já é uma imagem (termina com .jpg, .png, etc)
+    """Busca a imagem do produto de forma inteligente (Híbrido: API + Scraping)."""
+    
+    # 1. Verifica se o link já é uma imagem direta (jpg, png, etc)
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
 
-    # 2. Se não for, tenta buscar no site (Scraping)
+    # 2. Se for MakerWorld, usa o Microlink (altamente eficiente para sites 3D)
+    if "makerworld.com" in url:
+        try:
+            api_url = f"https://api.microlink.io?url={url}"
+            response = requests.get(api_url, timeout=10)
+            data = response.json()
+            if 'data' in data and 'image' in data['data'] and data['data']['image']['url']:
+                return data['data']['image']['url']
+        except:
+            pass
+
+    # 3. Se for outro site (Alphafest/Wix), usa o Scraping inteligente
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
@@ -143,7 +155,7 @@ if st.button("Gerar Catálogo"):
                 link = partes[0].strip()
                 contexto_manual = partes[1].strip() if len(partes) > 1 else ""
                 
-                # CORREÇÃO: Usando nome_lote como título principal
+                # Usando nome_lote como título principal conforme solicitado
                 nome = nome_lote
                 
                 custo, venda = calcular_preco(100.0, 2.0, preco_kg, margem, custo_hora, complexidade)
