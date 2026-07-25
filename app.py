@@ -6,7 +6,6 @@ import re
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
-# Certifique-se de que GROQ_API_KEY está configurada no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- FUNÇÕES ---
@@ -51,37 +50,61 @@ def gerar_anuncio_ia(nome_produto):
         return "Peça 3D Alphafest de alta precisão."
 
 def gerar_html_catalogo(df, lote):
-    """Gera um HTML otimizado para impressão profissional."""
-    html_template = f"""
+    """Gera um HTML com visual de Catálogo Profissional."""
+    html = f"""
     <!DOCTYPE html>
     <html lang="pt-br">
     <head>
         <meta charset="UTF-8">
         <style>
-            body {{ font-family: 'Segoe UI', sans-serif; margin: 40px; color: #333; background: #fff; }}
-            .header {{ text-align: center; margin-bottom: 50px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
-            .card {{ display: flex; border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; page-break-inside: avoid; }}
-            .card img {{ width: 150px; height: 150px; object-fit: cover; margin-right: 20px; border-radius: 5px; }}
-            .info h2 {{ margin: 0 0 10px 0; color: #000; }}
-            .price {{ font-weight: bold; font-size: 1.5em; color: #2e7d32; margin-top: 10px; }}
+            body {{ font-family: 'Segoe UI', Roboto, sans-serif; background-color: #eef2f3; padding: 30px; }}
+            .catalog-page {{ max-width: 850px; margin: auto; background: #fff; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }}
+            .header {{ text-align: center; margin-bottom: 40px; border-bottom: 3px solid #34495e; padding-bottom: 20px; }}
+            .header h1 {{ margin: 0; color: #2c3e50; font-size: 2.2em; text-transform: uppercase; }}
+            .header p {{ color: #7f8c8d; font-size: 1.1em; }}
+            
+            .card {{ 
+                display: flex; align-items: flex-start; 
+                background: #fff; border-left: 8px solid #3498db; 
+                padding: 25px; margin-bottom: 25px; 
+                border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            }}
+            .card img {{ width: 220px; height: 220px; object-fit: cover; border-radius: 8px; margin-right: 30px; border: 1px solid #ddd; }}
+            .content {{ flex: 1; }}
+            .content h2 {{ margin: 0 0 15px 0; color: #2c3e50; font-size: 1.6em; }}
+            .content p {{ font-size: 1em; color: #555; line-height: 1.6; margin-bottom: 15px; }}
+            .price-tag {{ 
+                display: inline-block; background: #27ae60; color: white; 
+                padding: 8px 20px; border-radius: 5px; font-weight: bold; font-size: 1.2em; 
+            }}
+            
+            @media print {{
+                body {{ background: white; }}
+                .catalog-page {{ box-shadow: none; }}
+                .card {{ break-inside: avoid; border: 1px solid #ddd; }}
+            }}
         </style>
     </head>
     <body>
-        <div class="header"><h1>Catálogo Alphafest: {lote}</h1></div>
+        <div class="catalog-page">
+            <div class="header">
+                <h1>Catálogo Alphafest</h1>
+                <p>Lote: {lote}</p>
+            </div>
     """
     for _, row in df.iterrows():
-        html_template += f"""
+        html += f"""
         <div class="card">
             <img src="{row['Imagem']}" alt="Produto">
-            <div class="info">
+            <div class="content">
                 <h2>{row['Nome_Exibicao']}</h2>
                 <p>{row['Descrição']}</p>
-                <div class="price">R$ {row['Preço Venda (R$)']:.2f}</div>
+                <div class="price-tag">R$ {row['Preço Venda (R$)']:.2f}</div>
             </div>
         </div>
         """
-    html_template += "</body></html>"
-    return html_template
+    html += "</div></body></html>"
+    return html
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
