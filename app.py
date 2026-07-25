@@ -8,6 +8,9 @@ from groq import Groq
 # --- CONFIGURAÇÕES ---
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
+# Rodapé fixo para padronizar todos os anúncios
+RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratuita para o interior do Brasil.\n✅ Assistência técnica completa.\n✅ Condições especiais para pedidos acima de R$ 1.999,99."
+
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
@@ -34,15 +37,11 @@ def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexi
     return round(custo_total, 2), round(preco_venda, 2)
 
 def gerar_anuncio_ia(nome_produto):
-    """Gera um texto de venda fluído e natural, sem listas."""
     try:
         response = groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças 3D. Não crie listas (bullet points), escreva parágrafos contínuos."},
-                {"role": "user", "content": f"""Crie um anúncio de vendas para: {nome_produto}.
-                O texto deve ser fluido e entusiasmado.
-                Ao final do texto, mencione de forma natural que a Alphafest oferece entrega rápida e gratuita para o interior do Brasil, assistência técnica completa e condições especiais para pedidos acima de R$ 1.999,99. 
-                Não mencione preços no texto do anúncio, pois o preço é exibido separadamente."""}
+                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças 3D. Foque apenas nas características da peça, no uso e no desejo de compra. Não fale de frete, preços ou garantias."},
+                {"role": "user", "content": f"Crie um anúncio de vendas persuasivo para a peça: {nome_produto}"}
             ],
             model="llama-3.1-8b-instant",
         )
@@ -51,7 +50,6 @@ def gerar_anuncio_ia(nome_produto):
         return f"{nome_produto} de alta precisão. Qualidade e acabamento premium Alphafest."
 
 def gerar_html_catalogo(df, lote):
-    """Gera um HTML com visual de Catálogo Profissional."""
     logo_url = "https://i.ibb.co/kV0jyTfK/logo.png" 
     html = f"""
     <!DOCTYPE html>
@@ -69,7 +67,7 @@ def gerar_html_catalogo(df, lote):
             .card img {{ width: 220px; height: 220px; object-fit: cover; border-radius: 8px; margin-right: 30px; border: 1px solid #ddd; }}
             .content {{ flex: 1; }}
             .content h2 {{ margin: 0 0 15px 0; color: #2c3e50; font-size: 1.6em; }}
-            .content p {{ font-size: 1em; color: #555; line-height: 1.6; margin-bottom: 15px; }}
+            .content p {{ font-size: 1em; color: #555; line-height: 1.6; margin-bottom: 15px; white-space: pre-line; }}
             .price-tag {{ display: inline-block; background: #27ae60; color: white; padding: 8px 20px; border-radius: 5px; font-weight: bold; font-size: 1.2em; }}
             @media print {{ body {{ background: white; }} .catalog-page {{ box-shadow: none; }} .card {{ break-inside: avoid; border: 1px solid #ddd; }} }}
         </style>
@@ -83,12 +81,13 @@ def gerar_html_catalogo(df, lote):
             </div>
     """
     for _, row in df.iterrows():
+        descricao_completa = row['Descrição'] + RODAPE_PADRAO
         html += f"""
         <div class="card">
             <img src="{row['Imagem']}" alt="Produto">
             <div class="content">
                 <h2>{row['Nome_Exibicao']}</h2>
-                <p>{row['Descrição']}</p>
+                <p>{descricao_completa}</p>
                 <div class="price-tag">R$ {row['Preço Venda (R$)']:.2f}</div>
             </div>
         </div>
@@ -141,10 +140,11 @@ if st.button("Gerar Catálogo"):
             st.divider()
             st.subheader("Prévia do Catálogo")
             for _, row in df.iterrows():
+                texto_completo = row['Descrição'] + RODAPE_PADRAO
                 with st.container(border=True):
                     cols = st.columns([1, 3])
                     cols[0].markdown(f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 8px;">', unsafe_allow_html=True)
                     cols[1].write(f"### {row['Nome_Exibicao']}")
-                    cols[1].write(row['Descrição'])
+                    cols[1].write(texto_completo)
                     cols[1].metric("Preço de Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
-                    st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{row['Descrição']}\n\n💰 R$ {row['Preço Venda (R$)']:.2f}", height=100, key=f"txt_{row['Nome_Exibicao']}")
+                    st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{texto_completo}\n\n💰 R$ {row['Preço Venda (R$)']:.2f}", height=150, key=f"txt_{row['Nome_Exibicao']}")
