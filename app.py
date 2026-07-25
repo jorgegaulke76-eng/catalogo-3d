@@ -7,33 +7,21 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# Certifique-se de que sua chave GROQ_API_KEY está configurada no Streamlit Cloud
+# Lembre-se de manter sua chave GROQ_API_KEY configurada no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Rodapé fixo para padronizar todos os anúncios
-RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratuita para o interior do Brasil.\n✅ Assistência técnica completa.\n✅ Condições especiais para pedidos acima de R$ 1.999,99."
+# Rodapé removido conforme solicitado
+RODAPE_PADRAO = ""
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a imagem do produto de forma inteligente (Híbrido: API + Scraping)."""
-    
-    # 1. Verifica se o link já é uma imagem direta (jpg, png, etc)
+    """Busca a imagem do produto: prioriza link direto ou busca via scraping."""
+    # 1. Verifica se o link já é uma imagem (termina com .jpg, .png, etc)
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
 
-    # 2. Se for MakerWorld, usa o Microlink (altamente eficiente para sites 3D)
-    if "makerworld.com" in url:
-        try:
-            api_url = f"https://api.microlink.io?url={url}"
-            response = requests.get(api_url, timeout=10)
-            data = response.json()
-            if 'data' in data and 'image' in data['data'] and data['data']['image']['url']:
-                return data['data']['image']['url']
-        except:
-            pass
-
-    # 3. Se for outro site (Alphafest/Wix), usa o Scraping inteligente
+    # 2. Se não for, tenta buscar no site (Scraping)
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
@@ -155,7 +143,7 @@ if st.button("Gerar Catálogo"):
                 link = partes[0].strip()
                 contexto_manual = partes[1].strip() if len(partes) > 1 else ""
                 
-                # Usando nome_lote como título principal conforme solicitado
+                # Usando nome_lote como título principal
                 nome = nome_lote
                 
                 custo, venda = calcular_preco(100.0, 2.0, preco_kg, margem, custo_hora, complexidade)
@@ -178,9 +166,8 @@ if st.button("Gerar Catálogo"):
             st.divider()
             st.subheader("Prévia do Catálogo")
             for _, row in df.iterrows():
-                # A prévia mostra apenas a descrição da IA (sem o rodapé poluído)
+                # Descrição limpa (sem rodapé)
                 descricao_limpa = row['Descrição']
-                # O "Copie p/ Redes" inclui o rodapé para envio ao cliente
                 texto_para_redes = row['Descrição'] + RODAPE_PADRAO
                 
                 with st.container(border=True):
