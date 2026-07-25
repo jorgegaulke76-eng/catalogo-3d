@@ -2,115 +2,56 @@ import streamlit as st
 import pandas as pd
 import io
 import requests
-import re
 from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Rodapé vazio conforme solicitado anteriormente
-RODAPE_PADRAO = ""
-
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a imagem do produto usando API robusta para MakerWorld e Scraping para outros."""
-    # 1. Verifica se o link já é uma imagem direta
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
-
-    # 2. Se for MakerWorld, usa o Microlink (API especializada em capturar imagens de sites dinâmicos)
     if "makerworld.com" in url:
         try:
             api_url = f"https://api.microlink.io?url={url}"
             response = requests.get(api_url, timeout=10)
             data = response.json()
-            if 'data' in data and 'image' in data['data'] and data['data']['image']['url']:
-                return data['data']['image']['url']
-        except:
-            pass
-
-    # 3. Scraping genérico para outros sites
+            if 'data' in data and 'image' in data['data']: return data['data']['image']['url']
+        except: pass
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.content, 'html.parser')
-        meta_image = soup.find("meta", property="og:image")
-        if meta_image and meta_image.get("content"):
-            return meta_image["content"]
-    except:
-        pass
-    
+        meta = soup.find("meta", property="og:image")
+        if meta and meta.get("content"): return meta["content"]
+    except: pass
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
-def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexidade):
-    custo_filamento = (peso_g / 1000) * preco_kg
-    custo_operacional = (custo_hora * tempo_h) * complexidade
+def calcular_preco_individual(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexidade):
+    custo_filamento = (float(peso_g) / 1000) * preco_kg
+    custo_operacional = (custo_hora * float(tempo_h)) * complexidade
     custo_total = custo_filamento + custo_operacional + 1.50
     preco_venda = custo_total * (1 + (margem_lucro / 100))
-    return round(custo_total, 2), round(preco_venda, 2)
+    return round(preco_total := custo_total, 2), round(preco_venda, 2)
 
 def gerar_anuncio_ia(nome_produto, contexto_manual=""):
-    prompt_base = f"Crie um anúncio de vendas persuasivo para: {nome_produto}."
-    if contexto_manual:
-        prompt_base += f"\n\nUse estas informações adicionais: {contexto_manual}"
-    
+    prompt = f"Crie um anúncio de vendas persuasivo para: {nome_produto}. {f'Detalhes: {contexto_manual}' if contexto_manual else ''}"
     try:
         response = groq_client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos focando em benefícios e uso. Não mencione frete, preços ou garantias."},
-                {"role": "user", "content": prompt_base}
-            ],
+            messages=[{"role": "system", "content": "Seja um especialista de marketing. Escreva anúncios curtos e persuasivos focando em benefícios. Não mencione frete/garantias."},
+                      {"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
         )
         return response.choices[0].message.content
-    except:
-        return f"{nome_produto} de alta qualidade. Qualidade Alphafest."
+    except: return f"{nome_produto} de alta qualidade."
 
 def gerar_html_catalogo(df, lote):
-    logo_url = "https://i.ibb.co/kV0jyTfK/logo.png" 
-    html = f"""
-    <!DOCTYPE html>
-    <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: 'Segoe UI', Roboto, sans-serif; background-color: #eef2f3; padding: 30px; }}
-            .catalog-page {{ max-width: 850px; margin: auto; background: #fff; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }}
-            .header {{ text-align: center; margin-bottom: 40px; border-bottom: 3px solid #34495e; padding-bottom: 20px; }}
-            .logo {{ max-width: 200px; margin-bottom: 15px; }}
-            .header h1 {{ margin: 0; color: #2c3e50; font-size: 2.2em; text-transform: uppercase; }}
-            .header p {{ color: #7f8c8d; font-size: 1.1em; }}
-            .card {{ display: flex; align-items: flex-start; background: #fff; border-left: 8px solid #3498db; padding: 25px; margin-bottom: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
-            .card img {{ width: 220px; height: 220px; object-fit: cover; border-radius: 8px; margin-right: 30px; border: 1px solid #ddd; }}
-            .content {{ flex: 1; }}
-            .content h2 {{ margin: 0 0 15px 0; color: #2c3e50; font-size: 1.6em; }}
-            .content p {{ font-size: 1em; color: #555; line-height: 1.6; margin-bottom: 15px; white-space: pre-line; }}
-            .price-tag {{ display: inline-block; background: #27ae60; color: white; padding: 8px 20px; border-radius: 5px; font-weight: bold; font-size: 1.2em; }}
-        </style>
-    </head>
-    <body>
-        <div class="catalog-page">
-            <div class="header">
-                <img src="{logo_url}" class="logo" alt="Logo Alphafest">
-                <h1>Catálogo Alphafest</h1>
-                <p>Lote: {lote}</p>
-            </div>
-    """
+    html = f"""<!DOCTYPE html><html><head><style>body{{font-family:sans-serif; padding:30px;}} .card{{display:flex; border-left:8px solid #3498db; padding:20px; margin-bottom:20px; box-shadow:0 2px 5px #ccc;}} img{{width:150px; height:150px; object-fit:cover; margin-right:20px;}}</style></head><body><h1>Lote: {lote}</h1>"""
     for _, row in df.iterrows():
-        html += f"""
-        <div class="card">
-            <img src="{row['Imagem']}" alt="Produto">
-            <div class="content">
-                <h2>{row['Nome_Exibicao']}</h2>
-                <p>{row['Descrição']}</p>
-                <div class="price-tag">R$ {row['Preço Venda (R$)']:.2f}</div>
-            </div>
-        </div>
-        """
-    html += "</div></body></html>"
-    return html
+        html += f"""<div class="card"><img src="{row['Imagem']}"><div><h2>{row['Nome_Exibicao']}</h2><p>{row['Descrição']}</p><b>R$ {row['Preço Venda (R$)']:.2f}</b></div></div>"""
+    return html + "</body></html>"
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
@@ -121,54 +62,35 @@ with st.sidebar:
     preco_kg = st.number_input("Preço Kg Filamento (R$)", value=90.00)
     margem = st.number_input("Margem Lucro (%)", value=200.0)
     custo_hora = st.number_input("Custo Máquina/Hora (R$)", value=1.10)
-    
-    st.header("Estimativa Padrão")
-    peso_padrao = st.number_input("Peso Médio (g)", value=100.0)
-    tempo_padrao = st.number_input("Tempo Médio (h)", value=2.0)
     complexidade = st.slider("Fator Complexidade", 1.0, 2.0, 1.0)
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
-st.info("💡 Dica: Você pode colar apenas o link, ou Link | Detalhes do produto.")
-links_input = st.text_area("Cole os links (formato: URL | detalhes manuais):")
+st.info("💡 Formato: **URL | Detalhes | Peso(g) | Tempo(h)**")
+links_input = st.text_area("Cole os produtos:", height=200)
 
 if st.button("Gerar Catálogo"):
-    if not links_input:
-        st.warning("Insira links!")
-    else:
-        linhas = links_input.split('\n')
-        dados_catalogo = []
-        with st.spinner("Processando..."):
-            for item in linhas:
-                if not item.strip(): continue
-                partes = item.split('|')
-                link = partes[0].strip()
-                contexto_manual = partes[1].strip() if len(partes) > 1 else ""
-                
-                # O cálculo agora usa os valores da barra lateral
-                custo, venda = calcular_preco(peso_padrao, tempo_padrao, preco_kg, margem, custo_hora, complexidade)
-                
-                dados_catalogo.append({
-                    "Nome_Exibicao": nome_lote,
-                    "Imagem": obter_imagem_original(link),
-                    "Descrição": gerar_anuncio_ia(nome_lote, contexto_manual),
-                    "Preço Venda (R$)": venda
-                })
-
-            df = pd.DataFrame(dados_catalogo)
-            
-            c1, c2 = st.columns(2)
-            buffer_excel = io.BytesIO()
-            df.to_excel(buffer_excel, index=False)
-            c1.download_button("📊 Baixar Excel", buffer_excel, "catalogo.xlsx")
-            c2.download_button("🖨️ Baixar HTML p/ Impressão", gerar_html_catalogo(df, nome_lote), "catalogo.html", "text/html")
-            
-            st.divider()
-            st.subheader("Prévia do Catálogo")
-            for _, row in df.iterrows():
-                with st.container(border=True):
-                    cols = st.columns([1, 3])
-                    cols[0].markdown(f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 8px;">', unsafe_allow_html=True)
-                    cols[1].write(f"### {row['Nome_Exibicao']}")
-                    cols[1].write(row['Descrição'])
-                    cols[1].metric("Preço de Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
-                    st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{row['Descrição']}\n\n💰 R$ {row['Preço Venda (R$)']:.2f}", height=150, key=f"txt_{row['Nome_Exibicao']}")
+    dados = []
+    for linha in links_input.split('\n'):
+        if not linha.strip(): continue
+        partes = [p.strip() for p in linha.split('|')]
+        # Extrai os dados: link, detalhes, peso, tempo
+        link, desc, peso, tempo = (partes + ["", "100", "2"])[:4]
+        
+        custo, venda = calcular_preco_individual(peso, tempo, preco_kg, margem, custo_hora, complexidade)
+        dados.append({
+            "Nome_Exibicao": nome_lote,
+            "Imagem": obter_imagem_original(link),
+            "Descrição": gerar_anuncio_ia(nome_lote, desc),
+            "Preço Venda (R$)": venda
+        })
+    
+    df = pd.DataFrame(dados)
+    st.success("Catálogo gerado!")
+    
+    for _, row in df.iterrows():
+        with st.container(border=True):
+            cols = st.columns([1, 4])
+            cols[0].image(row['Imagem'], use_column_width=True)
+            cols[1].subheader(row['Nome_Exibicao'])
+            cols[1].write(row['Descrição'])
+            cols[1].metric("Preço", f"R$ {row['Preço Venda (R$)']:.2f}")
