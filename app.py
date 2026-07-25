@@ -2,18 +2,20 @@ import streamlit as st
 import pandas as pd
 import io
 import requests
-import re  # Nova importação necessária
+import re
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
+# Certifique-se de que GROQ_API_KEY está configurada no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
+    """Busca a foto oficial usando a API do Microlink."""
     try:
         api_url = f"https://api.microlink.io?url={url}"
-        response = requests.get(api_url)
+        response = requests.get(api_url, timeout=10)
         data = response.json()
         if 'data' in data and 'image' in data['data']:
             return data['data']['image']['url']
@@ -22,9 +24,9 @@ def obter_imagem_original(url):
         return None
 
 def extrair_nome_do_link(link):
-    """Extrai o nome do produto, removendo o ID numérico inicial."""
+    """Remove IDs numéricos e formata o título."""
     parte_final = link.split('/')[-1].split('?')[0]
-    # Remove a sequência de números no início seguida de hífen (ex: "2894633-")
+    # Remove números no início seguidos de traço
     nome = re.sub(r'^\d+-', '', parte_final)
     return nome.replace('-', ' ').title()
 
@@ -49,34 +51,37 @@ def gerar_anuncio_ia(nome_produto):
         return "Peça 3D Alphafest de alta precisão."
 
 def gerar_html_catalogo(df, lote):
-    html = f"""
-    <html>
+    """Gera um HTML otimizado para impressão profissional."""
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="pt-br">
     <head>
+        <meta charset="UTF-8">
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; color: #333; }}
-            .header {{ text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }}
-            .card {{ border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 10px; display: flex; align-items: center; }}
-            .card img {{ width: 200px; height: 200px; object-fit: cover; border-radius: 10px; margin-right: 20px; }}
-            .info {{ flex: 1; }}
-            .price {{ font-weight: bold; color: #d32f2f; font-size: 1.2em; }}
+            body {{ font-family: 'Segoe UI', sans-serif; margin: 40px; color: #333; background: #fff; }}
+            .header {{ text-align: center; margin-bottom: 50px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
+            .card {{ display: flex; border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; page-break-inside: avoid; }}
+            .card img {{ width: 150px; height: 150px; object-fit: cover; margin-right: 20px; border-radius: 5px; }}
+            .info h2 {{ margin: 0 0 10px 0; color: #000; }}
+            .price {{ font-weight: bold; font-size: 1.5em; color: #2e7d32; margin-top: 10px; }}
         </style>
     </head>
     <body>
         <div class="header"><h1>Catálogo Alphafest: {lote}</h1></div>
     """
     for _, row in df.iterrows():
-        html += f"""
+        html_template += f"""
         <div class="card">
-            <img src="{row['Imagem']}">
+            <img src="{row['Imagem']}" alt="Produto">
             <div class="info">
                 <h2>{row['Nome_Exibicao']}</h2>
                 <p>{row['Descrição']}</p>
-                <p class="price">Preço: R$ {row['Preço Venda (R$)']:.2f}</p>
+                <div class="price">R$ {row['Preço Venda (R$)']:.2f}</div>
             </div>
         </div>
         """
-    html += "</body></html>"
-    return html
+    html_template += "</body></html>"
+    return html_template
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
@@ -90,56 +95,43 @@ with st.sidebar:
     complexidade = st.slider("Fator Complexidade", 1.0, 2.0, 1.0)
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
-links_input = st.text_area("Cole os links dos produtos (um por linha):")
+links_input = st.text_area("Cole os links (um por linha):")
 
 if st.button("Gerar Catálogo"):
     if not links_input:
-        st.warning("Insira ao menos um link!")
+        st.warning("Insira links!")
     else:
         linhas = links_input.split('\n')
         dados_catalogo = []
-        
-        with st.spinner("Gerando catálogo profissional..."):
+        with st.spinner("Processando..."):
             for item in linhas:
                 if not item.strip(): continue
                 link = item.strip()
-                nome_exibicao = extrair_nome_do_link(link)
-                foto_url = obter_imagem_original(link)
-                custo_total, preco_venda = calcular_preco(100.0, 2.0, preco_kg, margem, custo_hora, complexidade)
-                
+                nome = extrair_nome_do_link(link)
+                custo, venda = calcular_preco(100.0, 2.0, preco_kg, margem, custo_hora, complexidade)
                 dados_catalogo.append({
-                    "Nome_Exibicao": nome_exibicao,
-                    "Imagem": foto_url,
-                    "Descrição": gerar_anuncio_ia(nome_exibicao),
-                    "Custo (R$)": custo_total,
-                    "Preço Venda (R$)": preco_venda
+                    "Nome_Exibicao": nome,
+                    "Imagem": obter_imagem_original(link),
+                    "Descrição": gerar_anuncio_ia(nome),
+                    "Custo (R$)": custo,
+                    "Preço Venda (R$)": venda
                 })
 
             df = pd.DataFrame(dados_catalogo)
             
-            # --- BOTÕES DE DOWNLOAD ---
-            col1, col2 = st.columns(2)
+            # Botões
+            c1, c2 = st.columns(2)
             buffer_excel = io.BytesIO()
             df.to_excel(buffer_excel, index=False)
-            col1.download_button("📊 Baixar Excel", buffer_excel, f"catalogo_{nome_lote}.xlsx")
-            
-            html_content = gerar_html_catalogo(df, nome_lote)
-            col2.download_button("🖨️ Baixar Catálogo para Impressão (HTML)", html_content, f"catalogo_{nome_lote}.html", "text/html")
+            c1.download_button("📊 Baixar Excel", buffer_excel, "catalogo.xlsx")
+            c2.download_button("🖨️ Baixar HTML p/ Impressão", gerar_html_catalogo(df, nome_lote), "catalogo.html", "text/html")
             
             # Exibição
             for _, row in df.iterrows():
                 with st.container(border=True):
-                    c1, c2, c3 = st.columns([1, 2, 1])
-                    with c1:
-                        if row["Imagem"]: st.markdown(f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 10px;">', unsafe_allow_html=True)
-                    with c2:
-                        st.write(f"### {row['Nome_Exibicao']}")
-                        st.write(row['Descrição'])
-                    with c3:
-                        st.metric("Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
-                    
-                    st.divider()
-                    texto_social = f"🚀 {row['Nome_Exibicao']} - Alphafest Itatiba\n\n{row['Descrição']}\n\n💰 Apenas R$ {row['Preço Venda (R$)']:.2f}\n📦 Encomende a sua agora!"
-                    st.text_area("Copie p/ Redes:", value=texto_social, height=100, key=f"text_{row['Nome_Exibicao']}")
-            
-            st.success("Catálogo gerado com sucesso!")
+                    cols = st.columns([1, 3])
+                    cols[0].markdown(f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 8px;">', unsafe_allow_html=True)
+                    cols[1].write(f"### {row['Nome_Exibicao']}")
+                    cols[1].write(row['Descrição'])
+                    cols[1].metric("Preço de Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
+                    st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{row['Descrição']}\n\n💰 R$ {row['Preço Venda (R$)']:.2f}", height=100, key=f"txt_{row['Nome_Exibicao']}")
