@@ -7,42 +7,39 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+# Rodapé fixo para padronizar todos os anúncios
 RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratuita para o interior do Brasil.\n✅ Assistência técnica completa.\n✅ Condições especiais para pedidos acima de R$ 1.999,99."
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Tenta buscar a imagem real do produto simulando um navegador real."""
+    """Busca a imagem do produto: prioriza link direto ou busca via scraping."""
+    # 1. Verifica se o link já é uma imagem (termina com .jpg, .png, etc)
+    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
+        return url
+
+    # 2. Se não for, tenta buscar no site (Scraping)
     try:
-        # Simulando um navegador de verdade (Chrome) para evitar bloqueios
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
         }
         response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # 1. Tenta pegar a meta tag de imagem (padrão de sites)
         meta_image = soup.find("meta", property="og:image")
         if meta_image and meta_image.get("content"):
             return meta_image["content"]
             
-        # 2. Tenta buscar imagens dentro de tags comuns de produtos (padrão WooCommerce/Loja)
-        # Busca imagens que contenham 'product' ou 'main' na classe ou id
-        for img in soup.find_all('img'):
-            src = img.get('src')
-            if src and ('product' in src or 'main' in src or 'attachment' in src):
-                return src
-        
-        # 3. Se tudo falhar, pega a primeira imagem grande que encontrar
         first_img = soup.find("img")
         if first_img and first_img.get("src"):
             return first_img["src"]
-            
     except:
         pass
     
-    # Fallback (se tudo falhar, retorna o logo)
+    # Fallback: retorna o logo se tudo falhar
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def extrair_nome_do_link(link):
@@ -61,8 +58,8 @@ def gerar_anuncio_ia(nome_produto):
     try:
         response = groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças 3D. Foque apenas nas características da peça, no uso e no desejo de compra. Não fale de frete, preços ou garantias."},
-                {"role": "user", "content": f"Crie um anúncio de vendas persuasivo para a peça: {nome_produto}"}
+                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças 3D. Foque nas características, uso e desejo de compra. Não mencione frete, preços ou garantias."},
+                {"role": "user", "content": f"Crie um anúncio de vendas persuasivo para: {nome_produto}"}
             ],
             model="llama-3.1-8b-instant",
         )
