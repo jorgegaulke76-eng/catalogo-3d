@@ -6,11 +6,13 @@ import re
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
+# Certifique-se de que a chave GROQ_API_KEY está configurada no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
+    """Busca a foto oficial usando a API do Microlink."""
     try:
         api_url = f"https://api.microlink.io?url={url}"
         response = requests.get(api_url, timeout=10)
@@ -22,7 +24,9 @@ def obter_imagem_original(url):
         return None
 
 def extrair_nome_do_link(link):
+    """Remove IDs numéricos e formata o título."""
     parte_final = link.split('/')[-1].split('?')[0]
+    # Remove números no início seguidos de traço
     nome = re.sub(r'^\d+-', '', parte_final)
     return nome.replace('-', ' ').title()
 
@@ -47,11 +51,10 @@ def gerar_anuncio_ia(nome_produto):
         return "Peça 3D Alphafest de alta precisão."
 
 def gerar_html_catalogo(df, lote):
-    """Gera um HTML com visual de Catálogo Profissional."""
+    """Gera um HTML com visual de Catálogo Profissional e seu Logo."""
     
-    # --- AQUI VOCÊ COLOCA O LINK DO SEU LOGO ---
-    # Sugestão: Suba seu logo no site 'https://imgbb.com/', pegue o 'Link Direto' e cole aqui:
-    logo_url = "https://i.ibb.co/https://ibb.co/Kc7dGgk6" 
+    # SEU LOGO
+    logo_url = "https://i.ibb.co/kV0jyTfK/logo.png" 
     
     html = f"""
     <!DOCTYPE html>
@@ -65,13 +68,27 @@ def gerar_html_catalogo(df, lote):
             .logo {{ max-width: 200px; margin-bottom: 15px; }}
             .header h1 {{ margin: 0; color: #2c3e50; font-size: 2.2em; text-transform: uppercase; }}
             .header p {{ color: #7f8c8d; font-size: 1.1em; }}
-            .card {{ display: flex; align-items: flex-start; background: #fff; border-left: 8px solid #3498db; padding: 25px; margin-bottom: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+            
+            .card {{ 
+                display: flex; align-items: flex-start; 
+                background: #fff; border-left: 8px solid #3498db; 
+                padding: 25px; margin-bottom: 25px; 
+                border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            }}
             .card img {{ width: 220px; height: 220px; object-fit: cover; border-radius: 8px; margin-right: 30px; border: 1px solid #ddd; }}
             .content {{ flex: 1; }}
             .content h2 {{ margin: 0 0 15px 0; color: #2c3e50; font-size: 1.6em; }}
             .content p {{ font-size: 1em; color: #555; line-height: 1.6; margin-bottom: 15px; }}
-            .price-tag {{ display: inline-block; background: #27ae60; color: white; padding: 8px 20px; border-radius: 5px; font-weight: bold; font-size: 1.2em; }}
-            @media print {{ body {{ background: white; }} .catalog-page {{ box-shadow: none; }} .card {{ break-inside: avoid; border: 1px solid #ddd; }} }}
+            .price-tag {{ 
+                display: inline-block; background: #27ae60; color: white; 
+                padding: 8px 20px; border-radius: 5px; font-weight: bold; font-size: 1.2em; 
+            }}
+            
+            @media print {{
+                body {{ background: white; }}
+                .catalog-page {{ box-shadow: none; }}
+                .card {{ break-inside: avoid; border: 1px solid #ddd; }}
+            }}
         </style>
     </head>
     <body>
@@ -131,6 +148,7 @@ if st.button("Gerar Catálogo"):
                 })
 
             df = pd.DataFrame(dados_catalogo)
+            
             c1, c2 = st.columns(2)
             buffer_excel = io.BytesIO()
             df.to_excel(buffer_excel, index=False)
