@@ -4,27 +4,35 @@ import io
 import requests
 import re
 from groq import Groq
+from bs4 import BeautifulSoup # Necessário para a busca inteligente
 
 # --- CONFIGURAÇÕES ---
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-# Rodapé fixo para padronizar todos os anúncios
 RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratuita para o interior do Brasil.\n✅ Assistência técnica completa.\n✅ Condições especiais para pedidos acima de R$ 1.999,99."
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a foto oficial ou retorna o logo como reserva se falhar."""
+    """Busca a imagem do produto usando scraping básico."""
     try:
-        api_url = f"https://api.microlink.io?url={url}"
-        response = requests.get(api_url, timeout=10)
-        data = response.json()
-        if 'data' in data and 'image' in data['data'] and data['data']['image']['url']:
-            return data['data']['image']['url']
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Busca a tag meta og:image, que é o padrão de imagens de redes sociais
+        meta_image = soup.find("meta", property="og:image")
+        if meta_image and meta_image.get("content"):
+            return meta_image["content"]
+            
+        # Tenta buscar a primeira tag img principal caso a meta tag falhe
+        img = soup.find("img")
+        if img and img.get("src"):
+            return img["src"]
+            
     except:
         pass
     
-    # Se falhar, retorna o link do seu logo como reserva (fallback)
+    # Fallback (se tudo falhar, retorna o logo)
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def extrair_nome_do_link(link):
@@ -134,7 +142,6 @@ if st.button("Gerar Catálogo"):
 
             df = pd.DataFrame(dados_catalogo)
             
-            # Botões
             c1, c2 = st.columns(2)
             buffer_excel = io.BytesIO()
             df.to_excel(buffer_excel, index=False)
@@ -144,7 +151,6 @@ if st.button("Gerar Catálogo"):
             st.divider()
             st.subheader("Prévia do Catálogo")
             for _, row in df.iterrows():
-                # A prévia mostra apenas a descrição da IA
                 descricao_limpa = row['Descrição']
                 texto_para_redes = row['Descrição'] + RODAPE_PADRAO
                 
