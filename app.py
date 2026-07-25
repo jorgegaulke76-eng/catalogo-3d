@@ -32,11 +32,17 @@ def obter_imagem_original(url):
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def gerar_anuncio_ia(nome_produto, contexto_manual=""):
-    prompt = f"Crie um anúncio de vendas persuasivo para: {nome_produto}. {f'Detalhes: {contexto_manual}' if contexto_manual else ''}"
+    """Instrução ajustada para ser objetiva e fiel ao produto."""
+    prompt = f"Produto: {nome_produto}. Detalhes: {contexto_manual}. Escreva uma descrição curta, profissional e vendedora para este produto."
     try:
         response = groq_client.chat.completions.create(
-            messages=[{"role": "system", "content": "Seja um especialista de marketing. Escreva anúncios curtos e persuasivos focando em benefícios. Não mencione frete/garantias."},
-                      {"role": "user", "content": prompt}],
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Você é um especialista em marketing da ALPHAFEST ITATIBA. Sua tarefa é descrever produtos de decoração de festas. Use ESTRITAMENTE as informações fornecidas. NÃO invente histórias, personagens ou contextos que não foram informados. Foque na aplicação do produto, no tema e na qualidade. Seja direto, vendedor e profissional."
+                },
+                {"role": "user", "content": prompt}
+            ],
             model="llama-3.1-8b-instant",
         )
         return response.choices[0].message.content
