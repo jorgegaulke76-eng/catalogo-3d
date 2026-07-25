@@ -7,25 +7,17 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-# Rodapé fixo para padronizar todos os anúncios
 RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratuita para o interior do Brasil.\n✅ Assistência técnica completa.\n✅ Condições especiais para pedidos acima de R$ 1.999,99."
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a imagem do produto: prioriza link direto ou busca via scraping."""
-    # 1. Verifica se o link já é uma imagem (termina com .jpg, .png, etc)
+    """Busca a imagem do produto de forma inteligente."""
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
-
-    # 2. Se não for, tenta buscar no site (Scraping)
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-        }
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'}
         response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
@@ -38,8 +30,6 @@ def obter_imagem_original(url):
             return first_img["src"]
     except:
         pass
-    
-    # Fallback: retorna o logo se tudo falhar
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def extrair_nome_do_link(link):
@@ -54,18 +44,23 @@ def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexi
     preco_venda = custo_total * (1 + (margem_lucro / 100))
     return round(custo_total, 2), round(preco_venda, 2)
 
-def gerar_anuncio_ia(nome_produto):
+def gerar_anuncio_ia(nome_produto, contexto_manual=""):
+    """Gera anúncio. Se o usuário fornecer um contexto manual, a IA o prioriza."""
+    prompt_base = f"Crie um anúncio de vendas persuasivo para a peça: {nome_produto}."
+    if contexto_manual:
+        prompt_base += f"\n\nUse estas informações adicionais fornecidas pelo vendedor: {contexto_manual}"
+    
     try:
         response = groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças 3D. Foque nas características, uso e desejo de compra. Não mencione frete, preços ou garantias."},
-                {"role": "user", "content": f"Crie um anúncio de vendas persuasivo para: {nome_produto}"}
+                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos, focando em benefícios, uso e desejo de compra. Não mencione frete, preços ou garantias."},
+                {"role": "user", "content": prompt_base}
             ],
             model="llama-3.1-8b-instant",
         )
         return response.choices[0].message.content
     except:
-        return f"{nome_produto} de alta precisão. Qualidade e acabamento premium Alphafest."
+        return f"{nome_produto} de alta qualidade. Qualidade Alphafest."
 
 def gerar_html_catalogo(df, lote):
     logo_url = "https://i.ibb.co/kV0jyTfK/logo.png" 
@@ -125,7 +120,8 @@ with st.sidebar:
     complexidade = st.slider("Fator Complexidade", 1.0, 2.0, 1.0)
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
-links_input = st.text_area("Cole os links (um por linha):")
+st.info("💡 Dica: Você pode colar apenas o link, ou Link | Detalhes do produto.")
+links_input = st.text_area("Cole os links (formato: URL | detalhes manuais):")
 
 if st.button("Gerar Catálogo"):
     if not links_input:
@@ -136,13 +132,18 @@ if st.button("Gerar Catálogo"):
         with st.spinner("Processando..."):
             for item in linhas:
                 if not item.strip(): continue
-                link = item.strip()
+                
+                # Separa o link do contexto manual se o "|" existir
+                partes = item.split('|')
+                link = partes[0].strip()
+                contexto_manual = partes[1].strip() if len(partes) > 1 else ""
+                
                 nome = extrair_nome_do_link(link)
                 custo, venda = calcular_preco(100.0, 2.0, preco_kg, margem, custo_hora, complexidade)
                 dados_catalogo.append({
                     "Nome_Exibicao": nome,
                     "Imagem": obter_imagem_original(link),
-                    "Descrição": gerar_anuncio_ia(nome),
+                    "Descrição": gerar_anuncio_ia(nome, contexto_manual),
                     "Custo (R$)": custo,
                     "Preço Venda (R$)": venda
                 })
