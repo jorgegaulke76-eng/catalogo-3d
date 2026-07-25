@@ -6,17 +6,11 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-# --- INICIALIZAÇÃO DE ESTADO (Para limpar os campos) ---
-if 'lote_key' not in st.session_state: st.session_state.lote_key = ""
-if 'produtos_key' not in st.session_state: st.session_state.produtos_key = ""
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a imagem do produto: prioriza link direto ou busca via scraping."""
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
     if "makerworld.com" in url:
@@ -58,10 +52,19 @@ def gerar_html_catalogo(df, lote):
 st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
 st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
-# Usando session_state para manter e limpar os inputs
-nome_lote = st.text_input("Nome do Lote:", key="lote_key")
+# Lógica para resetar campos
+if "lote" not in st.session_state: st.session_state.lote = ""
+if "links" not in st.session_state: st.session_state.links = ""
+
+nome_lote = st.text_input("Nome do Lote:", key="lote")
 st.info("💡 Formato obrigatório: **URL | Detalhes**")
-links_input = st.text_area("Cole os produtos:", key="produtos_key", height=250)
+links_input = st.text_area("Cole os produtos:", key="links", height=250)
+
+col1, col2 = st.columns([1, 6])
+if col1.button("Limpar Tudo"):
+    st.session_state.lote = ""
+    st.session_state.links = ""
+    st.rerun()
 
 if st.button("Gerar Catálogo"):
     if not links_input:
@@ -97,7 +100,3 @@ if st.button("Gerar Catálogo"):
                 cols[1].subheader(row['Nome_Exibicao'])
                 cols[1].write(row['Descrição'])
                 st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{row['Descrição']}", height=150, key=f"txt_{row['Nome_Exibicao']}")
-        
-        # AQUI É A MÁGICA: Limpa os campos após gerar
-        st.session_state.lote_key = ""
-        st.session_state.produtos_key = ""
