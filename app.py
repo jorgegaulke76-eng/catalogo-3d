@@ -7,17 +7,25 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY configurada no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+# Rodapé fixo para padronizar todos os anúncios
 RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratuita para o interior do Brasil.\n✅ Assistência técnica completa.\n✅ Condições especiais para pedidos acima de R$ 1.999,99."
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a imagem do produto de forma inteligente."""
+    """Busca a imagem do produto: prioriza link direto ou busca via scraping."""
+    # 1. Verifica se o link já é uma imagem (termina com .jpg, .png, etc)
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
+
+    # 2. Se não for, tenta buscar no site (Scraping)
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+        }
         response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
@@ -30,12 +38,9 @@ def obter_imagem_original(url):
             return first_img["src"]
     except:
         pass
+    
+    # Fallback: retorna o logo se tudo falhar
     return "https://i.ibb.co/kV0jyTfK/logo.png"
-
-def extrair_nome_do_link(link):
-    parte_final = link.split('/')[-1].split('?')[0]
-    nome = re.sub(r'^\d+-', '', parte_final)
-    return nome.replace('-', ' ').title()
 
 def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexidade):
     custo_filamento = (peso_g / 1000) * preco_kg
@@ -138,7 +143,9 @@ if st.button("Gerar Catálogo"):
                 link = partes[0].strip()
                 contexto_manual = partes[1].strip() if len(partes) > 1 else ""
                 
-                nome = extrair_nome_do_link(link)
+                # CORREÇÃO: Usando nome_lote como título principal
+                nome = nome_lote
+                
                 custo, venda = calcular_preco(100.0, 2.0, preco_kg, margem, custo_hora, complexidade)
                 dados_catalogo.append({
                     "Nome_Exibicao": nome,
@@ -159,7 +166,9 @@ if st.button("Gerar Catálogo"):
             st.divider()
             st.subheader("Prévia do Catálogo")
             for _, row in df.iterrows():
+                # A prévia mostra apenas a descrição da IA (sem o rodapé poluído)
                 descricao_limpa = row['Descrição']
+                # O "Copie p/ Redes" inclui o rodapé para envio ao cliente
                 texto_para_redes = row['Descrição'] + RODAPE_PADRAO
                 
                 with st.container(border=True):
