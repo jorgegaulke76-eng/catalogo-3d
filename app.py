@@ -34,19 +34,24 @@ def calcular_preco(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexi
     return round(custo_total, 2), round(preco_venda, 2)
 
 def gerar_anuncio_ia(nome_produto):
+    """Gera um texto de venda fluído e natural, sem listas."""
     try:
         response = groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças 3D. Máximo 2 parágrafos."},
-                {"role": "user", "content": f"Crie um anúncio de vendas para: {nome_produto}"}
+                {"role": "system", "content": "Você é o especialista de marketing da ALPHAFEST ITATIBA. Escreva anúncios persuasivos para peças 3D. Não crie listas (bullet points), escreva parágrafos contínuos."},
+                {"role": "user", "content": f"""Crie um anúncio de vendas para: {nome_produto}.
+                O texto deve ser fluido e entusiasmado.
+                Ao final do texto, mencione de forma natural que a Alphafest oferece entrega rápida e gratuita para o interior do Brasil, assistência técnica completa e condições especiais para pedidos acima de R$ 1.999,99. 
+                Não mencione preços no texto do anúncio, pois o preço é exibido separadamente."""}
             ],
             model="llama-3.1-8b-instant",
         )
         return response.choices[0].message.content
     except:
-        return "Peça 3D Alphafest de alta precisão."
+        return f"{nome_produto} de alta precisão. Qualidade e acabamento premium Alphafest."
 
 def gerar_html_catalogo(df, lote):
+    """Gera um HTML com visual de Catálogo Profissional."""
     logo_url = "https://i.ibb.co/kV0jyTfK/logo.png" 
     html = f"""
     <!DOCTYPE html>
@@ -127,14 +132,12 @@ if st.button("Gerar Catálogo"):
 
             df = pd.DataFrame(dados_catalogo)
             
-            # Botões de Download
             c1, c2 = st.columns(2)
             buffer_excel = io.BytesIO()
             df.to_excel(buffer_excel, index=False)
             c1.download_button("📊 Baixar Excel", buffer_excel, "catalogo.xlsx")
             c2.download_button("🖨️ Baixar HTML p/ Impressão", gerar_html_catalogo(df, nome_lote), "catalogo.html", "text/html")
             
-            # --- PRÉVIA ---
             st.divider()
             st.subheader("Prévia do Catálogo")
             for _, row in df.iterrows():
