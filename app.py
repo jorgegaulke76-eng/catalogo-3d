@@ -51,7 +51,7 @@ def gerar_html_catalogo(df, lote):
     
     # --- AQUI VOCÊ COLOCA O LINK DO SEU LOGO ---
     # Sugestão: Suba seu logo no site 'https://imgbb.com/', pegue o 'Link Direto' e cole aqui:
-    logo_url = "https://i.ibb.co/seu-logo-aqui.png" 
+    logo_url = "https://i.ibb.co/https://ibb.co/Kc7dGgk6" 
     
     html = f"""
     <!DOCTYPE html>
