@@ -6,8 +6,12 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# Lembre-se de manter sua chave GROQ_API_KEY configurada no Streamlit Cloud
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+# --- INICIALIZAÇÃO DE ESTADO (Para limpar os campos) ---
+if 'lote_key' not in st.session_state: st.session_state.lote_key = ""
+if 'produtos_key' not in st.session_state: st.session_state.produtos_key = ""
 
 # --- FUNÇÕES ---
 
@@ -32,15 +36,11 @@ def obter_imagem_original(url):
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def gerar_anuncio_ia(nome_produto, contexto_manual=""):
-    """Instrução ajustada para ser objetiva e fiel ao produto."""
-    prompt = f"Produto: {nome_produto}. Detalhes: {contexto_manual}. Escreva uma descrição curta, profissional e vendedora para este produto."
+    prompt = f"Produto: {nome_produto}. Detalhes: {contexto_manual}. Escreva uma descrição curta, profissional e vendedora."
     try:
         response = groq_client.chat.completions.create(
             messages=[
-                {
-                    "role": "system", 
-                    "content": "Você é um especialista em marketing da ALPHAFEST ITATIBA. Sua tarefa é descrever produtos de decoração de festas. Use ESTRITAMENTE as informações fornecidas. NÃO invente histórias, personagens ou contextos que não foram informados. Foque na aplicação do produto, no tema e na qualidade. Seja direto, vendedor e profissional."
-                },
+                {"role": "system", "content": "Você é um especialista de marketing da ALPHAFEST ITATIBA. Descreva o produto com base APENAS nas informações fornecidas. Não invente histórias, personagens ou contextos. Seja direto, profissional e vendedor."},
                 {"role": "user", "content": prompt}
             ],
             model="llama-3.1-8b-instant",
@@ -58,9 +58,10 @@ def gerar_html_catalogo(df, lote):
 st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
 st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
-nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
+# Usando session_state para manter e limpar os inputs
+nome_lote = st.text_input("Nome do Lote:", key="lote_key")
 st.info("💡 Formato obrigatório: **URL | Detalhes**")
-links_input = st.text_area("Cole os produtos:", height=250)
+links_input = st.text_area("Cole os produtos:", key="produtos_key", height=250)
 
 if st.button("Gerar Catálogo"):
     if not links_input:
@@ -69,7 +70,6 @@ if st.button("Gerar Catálogo"):
         dados = []
         for linha in links_input.split('\n'):
             if not linha.strip(): continue
-            # Separa apenas Link e Detalhes
             partes = [p.strip() for p in linha.split('|')]
             link = partes[0]
             desc = partes[1] if len(partes) > 1 else ""
@@ -97,3 +97,7 @@ if st.button("Gerar Catálogo"):
                 cols[1].subheader(row['Nome_Exibicao'])
                 cols[1].write(row['Descrição'])
                 st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{row['Descrição']}", height=150, key=f"txt_{row['Nome_Exibicao']}")
+        
+        # AQUI É A MÁGICA: Limpa os campos após gerar
+        st.session_state.lote_key = ""
+        st.session_state.produtos_key = ""
