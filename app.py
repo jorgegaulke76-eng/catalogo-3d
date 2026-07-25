@@ -140,11 +140,16 @@ if st.button("Gerar Catálogo"):
             st.divider()
             st.subheader("Prévia do Catálogo")
             for _, row in df.iterrows():
-                texto_completo = row['Descrição'] + RODAPE_PADRAO
+                # A prévia mostra APENAS a descrição da IA, sem o rodapé poluído
+                descricao_limpa = row['Descrição']
+                
                 with st.container(border=True):
                     cols = st.columns([1, 3])
                     cols[0].markdown(f'<img src="{row["Imagem"]}" style="width: 100%; border-radius: 8px;">', unsafe_allow_html=True)
                     cols[1].write(f"### {row['Nome_Exibicao']}")
-                    cols[1].write(texto_completo)
+                    cols[1].write(descricao_limpa) # Apenas o texto da IA
                     cols[1].metric("Preço de Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
-                    st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{texto_completo}\n\n💰 R$ {row['Preço Venda (R$)']:.2f}", height=150, key=f"txt_{row['Nome_Exibicao']}")
+                    
+                    # O "Copie p/ Redes" continua com o rodapé, pois lá você precisa dele completo
+                    texto_para_redes = row['Descrição'] + RODAPE_PADRAO
+                    st.text_area("Copie p/ Redes (com rodapé):", value=f"🚀 {row['Nome_Exibicao']}\n\n{texto_para_redes}\n\n💰 R$ {row['Preço Venda (R$)']:.2f}", height=150, key=f"txt_{row['Nome_Exibicao']}")
