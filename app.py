@@ -5,14 +5,8 @@ import requests
 from groq import Groq
 from bs4 import BeautifulSoup
 
-# --- CONFIGURAÇÕES PADRÃO (Valores fixos internos) ---
-PRECO_KG_DEFAULT = 90.0
-MARGEM_DEFAULT = 200.0
-CUSTO_HORA_DEFAULT = 1.10
-COMPLEXIDADE_DEFAULT = 1.0
-
 # --- CONFIGURAÇÕES ---
-# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
+# Lembre-se de manter sua chave GROQ_API_KEY configurada no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- FUNÇÕES ---
@@ -37,12 +31,19 @@ def obter_imagem_original(url):
     except: pass
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
-def calcular_preco_individual(peso_g, tempo_h):
-    # Usa as configurações padrão definidas no topo
-    custo_filamento = (float(peso_g) / 1000) * PRECO_KG_DEFAULT
-    custo_operacional = (CUSTO_HORA_DEFAULT * float(tempo_h)) * COMPLEXIDADE_DEFAULT
+def calcular_preco_individual():
+    # Valores padrão internos para cálculo automático
+    peso_g_default = 100.0
+    tempo_h_default = 2.0
+    preco_kg_default = 90.0
+    margem_default = 200.0
+    custo_hora_default = 1.10
+    complexidade_default = 1.0
+        
+    custo_filamento = (peso_g_default / 1000) * preco_kg_default
+    custo_operacional = (custo_hora_default * tempo_h_default) * complexidade_default
     custo_total = custo_filamento + custo_operacional + 1.50
-    preco_venda = custo_total * (1 + (MARGEM_DEFAULT / 100))
+    preco_venda = custo_total * (1 + (margem_default / 100))
     return round(custo_total, 2), round(preco_venda, 2)
 
 def gerar_anuncio_ia(nome_produto, contexto_manual=""):
@@ -67,7 +68,7 @@ st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
 st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
-st.info("💡 Formato obrigatório: **URL | Detalhes | Peso(g) | Tempo(h)**")
+st.info("💡 Formato obrigatório: **URL | Detalhes**")
 links_input = st.text_area("Cole os produtos:", height=250)
 
 if st.button("Gerar Catálogo"):
@@ -77,11 +78,12 @@ if st.button("Gerar Catálogo"):
         dados = []
         for linha in links_input.split('\n'):
             if not linha.strip(): continue
+            # Separa apenas Link e Detalhes
             partes = [p.strip() for p in linha.split('|')]
-            # Extrai os dados: link, detalhes, peso, tempo
-            link, desc, peso, tempo = (partes + ["", "100", "2"])[:4]
+            link = partes[0]
+            desc = partes[1] if len(partes) > 1 else ""
             
-            custo, venda = calcular_preco_individual(peso, tempo)
+            custo, venda = calcular_preco_individual()
             dados.append({
                 "Nome_Exibicao": nome_lote,
                 "Imagem": obter_imagem_original(link),
@@ -106,3 +108,4 @@ if st.button("Gerar Catálogo"):
                 cols[1].subheader(row['Nome_Exibicao'])
                 cols[1].write(row['Descrição'])
                 cols[1].metric("Preço de Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
+                st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{row['Descrição']}\n\n💰 R$ {row['Preço Venda (R$)']:.2f}", height=150, key=f"txt_{row['Nome_Exibicao']}")
