@@ -4,7 +4,7 @@ import io
 import requests
 import re
 from groq import Groq
-from bs4 import BeautifulSoup # Necessário para a busca inteligente
+from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -13,21 +13,31 @@ RODAPE_PADRAO = "\n\n--- 📦 ALPHAFEST ITATIBA ---\n✅ Entrega rápida e gratu
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    """Busca a imagem do produto usando scraping básico."""
+    """Tenta buscar a imagem real do produto simulando um navegador real."""
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=10)
+        # Simulando um navegador de verdade (Chrome) para evitar bloqueios
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Busca a tag meta og:image, que é o padrão de imagens de redes sociais
+        # 1. Tenta pegar a meta tag de imagem (padrão de sites)
         meta_image = soup.find("meta", property="og:image")
         if meta_image and meta_image.get("content"):
             return meta_image["content"]
             
-        # Tenta buscar a primeira tag img principal caso a meta tag falhe
-        img = soup.find("img")
-        if img and img.get("src"):
-            return img["src"]
+        # 2. Tenta buscar imagens dentro de tags comuns de produtos (padrão WooCommerce/Loja)
+        # Busca imagens que contenham 'product' ou 'main' na classe ou id
+        for img in soup.find_all('img'):
+            src = img.get('src')
+            if src and ('product' in src or 'main' in src or 'attachment' in src):
+                return src
+        
+        # 3. Se tudo falhar, pega a primeira imagem grande que encontrar
+        first_img = soup.find("img")
+        if first_img and first_img.get("src"):
+            return first_img["src"]
             
     except:
         pass
