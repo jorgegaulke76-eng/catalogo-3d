@@ -5,12 +5,20 @@ import requests
 from groq import Groq
 from bs4 import BeautifulSoup
 
+# --- CONFIGURAÇÕES PADRÃO (Valores fixos internos) ---
+PRECO_KG_DEFAULT = 90.0
+MARGEM_DEFAULT = 200.0
+CUSTO_HORA_DEFAULT = 1.10
+COMPLEXIDADE_DEFAULT = 1.0
+
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
+    """Busca a imagem do produto: prioriza link direto ou busca via scraping."""
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
     if "makerworld.com" in url:
@@ -29,12 +37,13 @@ def obter_imagem_original(url):
     except: pass
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
-def calcular_preco_individual(peso_g, tempo_h, preco_kg, margem_lucro, custo_hora, complexidade):
-    custo_filamento = (float(peso_g) / 1000) * preco_kg
-    custo_operacional = (custo_hora * float(tempo_h)) * complexidade
+def calcular_preco_individual(peso_g, tempo_h):
+    # Usa as configurações padrão definidas no topo
+    custo_filamento = (float(peso_g) / 1000) * PRECO_KG_DEFAULT
+    custo_operacional = (CUSTO_HORA_DEFAULT * float(tempo_h)) * COMPLEXIDADE_DEFAULT
     custo_total = custo_filamento + custo_operacional + 1.50
-    preco_venda = custo_total * (1 + (margem_lucro / 100))
-    return round(preco_total := custo_total, 2), round(preco_venda, 2)
+    preco_venda = custo_total * (1 + (MARGEM_DEFAULT / 100))
+    return round(custo_total, 2), round(preco_venda, 2)
 
 def gerar_anuncio_ia(nome_produto, contexto_manual=""):
     prompt = f"Crie um anúncio de vendas persuasivo para: {nome_produto}. {f'Detalhes: {contexto_manual}' if contexto_manual else ''}"
@@ -57,40 +66,43 @@ def gerar_html_catalogo(df, lote):
 st.set_page_config(page_title="Catálogo Alphafest", layout="wide")
 st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
-with st.sidebar:
-    st.header("Configurações Globais")
-    preco_kg = st.number_input("Preço Kg Filamento (R$)", value=90.00)
-    margem = st.number_input("Margem Lucro (%)", value=200.0)
-    custo_hora = st.number_input("Custo Máquina/Hora (R$)", value=1.10)
-    complexidade = st.slider("Fator Complexidade", 1.0, 2.0, 1.0)
-
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
-st.info("💡 Formato: **URL | Detalhes | Peso(g) | Tempo(h)**")
-links_input = st.text_area("Cole os produtos:", height=200)
+st.info("💡 Formato obrigatório: **URL | Detalhes | Peso(g) | Tempo(h)**")
+links_input = st.text_area("Cole os produtos:", height=250)
 
 if st.button("Gerar Catálogo"):
-    dados = []
-    for linha in links_input.split('\n'):
-        if not linha.strip(): continue
-        partes = [p.strip() for p in linha.split('|')]
-        # Extrai os dados: link, detalhes, peso, tempo
-        link, desc, peso, tempo = (partes + ["", "100", "2"])[:4]
+    if not links_input:
+        st.warning("Insira links!")
+    else:
+        dados = []
+        for linha in links_input.split('\n'):
+            if not linha.strip(): continue
+            partes = [p.strip() for p in linha.split('|')]
+            # Extrai os dados: link, detalhes, peso, tempo
+            link, desc, peso, tempo = (partes + ["", "100", "2"])[:4]
+            
+            custo, venda = calcular_preco_individual(peso, tempo)
+            dados.append({
+                "Nome_Exibicao": nome_lote,
+                "Imagem": obter_imagem_original(link),
+                "Descrição": gerar_anuncio_ia(nome_lote, desc),
+                "Preço Venda (R$)": venda
+            })
         
-        custo, venda = calcular_preco_individual(peso, tempo, preco_kg, margem, custo_hora, complexidade)
-        dados.append({
-            "Nome_Exibicao": nome_lote,
-            "Imagem": obter_imagem_original(link),
-            "Descrição": gerar_anuncio_ia(nome_lote, desc),
-            "Preço Venda (R$)": venda
-        })
-    
-    df = pd.DataFrame(dados)
-    st.success("Catálogo gerado!")
-    
-    for _, row in df.iterrows():
-        with st.container(border=True):
-            cols = st.columns([1, 4])
-            cols[0].image(row['Imagem'], use_column_width=True)
-            cols[1].subheader(row['Nome_Exibicao'])
-            cols[1].write(row['Descrição'])
-            cols[1].metric("Preço", f"R$ {row['Preço Venda (R$)']:.2f}")
+        df = pd.DataFrame(dados)
+        st.success("Catálogo gerado com sucesso!")
+        
+        c1, c2 = st.columns(2)
+        buffer_excel = io.BytesIO()
+        df.to_excel(buffer_excel, index=False)
+        c1.download_button("📊 Baixar Excel", buffer_excel, "catalogo.xlsx")
+        c2.download_button("🖨️ Baixar HTML p/ Impressão", gerar_html_catalogo(df, nome_lote), "catalogo.html", "text/html")
+        
+        st.divider()
+        for _, row in df.iterrows():
+            with st.container(border=True):
+                cols = st.columns([1, 4])
+                cols[0].image(row['Imagem'], use_column_width=True)
+                cols[1].subheader(row['Nome_Exibicao'])
+                cols[1].write(row['Descrição'])
+                cols[1].metric("Preço de Venda", f"R$ {row['Preço Venda (R$)']:.2f}")
