@@ -59,22 +59,36 @@ def gerar_html_catalogo(lista_produtos, lote):
         id_cat = cat.replace(" ", "_")
         capa_links += f"<li><a href='#{id_cat}'>{cat}</a></li>"
 
+    # HTML com Lightbox para Zoom
     html = f"""<!DOCTYPE html><html><head><style>
-        body{{font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background-color: #f9f9f9;}} 
+        body{{font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f9f9f9;}} 
         h1{{text-align: center; color: #2c3e50; margin-bottom: 20px; border-bottom: 3px solid #3498db; padding-bottom: 10px;}}
-        .capa{{background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 50px; text-align: center;}}
-        .capa a{{display: block; font-size: 20px; margin: 10px 0; color: #2980b9; text-decoration: none; font-weight: bold;}}
-        .capa a:hover{{text-decoration: underline;}}
-        .categoria-section{{page-break-before: always; margin-top: 40px;}}
-        .categoria-titulo{{color: #34495e; padding: 15px; background: #e8f6f3; border-left: 10px solid #1abc9c; margin-bottom: 25px;}}
-        .card{{display: flex; align-items: center; background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}} 
-        img{{width: 180px; height: 180px; object-fit: cover; border-radius: 5px; margin-right: 25px;}}
-        h2{{margin-top: 0; color: #2980b9;}}
-    </style></head><body>
+        .capa{{background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; text-align: center;}}
+        .capa a{{display: block; font-size: 18px; margin: 10px 0; color: #2980b9; text-decoration: none; font-weight: bold;}}
+        .categoria-section{{page-break-before: always; margin-top: 30px;}}
+        .categoria-titulo{{color: #34495e; padding: 10px; background: #e8f6f3; border-left: 8px solid #1abc9c; margin-bottom: 20px;}}
+        .card{{display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}} 
+        img{{width: 100px; height: 100px; object-fit: cover; border-radius: 5px; margin-right: 15px; cursor: pointer; transition: transform 0.2s;}}
+        img:hover{{transform: scale(1.05);}}
+        h2{{margin-top: 0; color: #2980b9; font-size: 1.2rem;}}
+        /* Estilo do Lightbox (Zoom) */
+        .lightbox {{ display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }}
+        .lightbox-img {{ max-width: 90%; max-height: 80%; margin: auto; display: block; position: relative; top: 10%; border: 2px solid white; }}
+        .close-btn {{ position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; }}
+    </style>
+    <script>
+        function openLightbox(src) {{ document.getElementById('full-img').src = src; document.getElementById('lightbox').style.display = 'block'; }}
+        function closeLightbox() {{ document.getElementById('lightbox').style.display = 'none'; }}
+    </script>
+    </head><body>
     <h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1>
     <div class="capa">
-        <h3>Selecione a Categoria:</h3>
+        <h3>Menu de Categorias:</h3>
         {capa_links}
+    </div>
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <span class="close-btn">&times;</span>
+        <img id="full-img" class="lightbox-img">
     </div>
     """
     
@@ -82,7 +96,7 @@ def gerar_html_catalogo(lista_produtos, lote):
         id_cat = categoria.replace(" ", "_")
         html += f"<div id='{id_cat}' class='categoria-section'><h2 class='categoria-titulo'>📂 {categoria}</h2>"
         for _, p in group.iterrows():
-            html += f"""<div class="card"><img src="{p['Imagem']}"><div><h2>{p['Nome_Exibicao']}</h2><p>{p['Descrição']}</p></div></div>"""
+            html += f"""<div class="card"><img src="{p['Imagem']}" onclick="openLightbox('{p['Imagem']}')"><div><h2>{p['Nome_Exibicao']}</h2><p>{p['Descrição']}</p></div></div>"""
         html += "</div>"
         
     return html + "</body></html>"
@@ -98,7 +112,7 @@ c1, c2 = st.columns(2)
 with c1:
     st.subheader("🔗 Adicionar via Link")
     cat_link = st.text_input("Categoria (para este link):", "Outros")
-    st.info("💡 **DICA:** Se o link direto falhar, clique com botão direito na imagem -> 'Copiar endereço da imagem'.")
+    st.info("💡 **DICA:** Se o link direto falhar, clique com botão direito na imagem -> 'Copiar endereço da imagem' e cole aqui.")
     links_input = st.text_area("Cole a URL da Imagem:", height=100)
     if st.button("Adicionar Links ao Lote"):
         for linha in links_input.split('\n'):
@@ -115,7 +129,6 @@ with c1:
 with c2:
     st.subheader("📁 Adicionar via Upload")
     cat_up = st.text_input("Categoria (para este upload):", "Outros")
-    # Usamos uma chave única (key) para controlar o uploader
     foto = st.file_uploader("Subir foto", type=['jpg', 'png', 'jpeg', 'webp'], key="uploader_foto")
     desc_manual = st.text_area("Detalhes do produto:", height=60)
     if st.button("Adicionar Foto ao Lote"):
@@ -139,10 +152,8 @@ if col_btn1.button("Gerar Arquivos Finais (Excel + HTML)"):
     else:
         st.warning("Adicione produtos primeiro!")
 
-# Botão Limpar Tudo corrigido
 if col_btn2.button("Limpar Tudo e Recomeçar"):
     st.session_state.produtos_totais = []
-    # O truque abaixo força o Streamlit a redesenhar os componentes, limpando o upload
     st.rerun()
 
 if st.session_state.produtos_totais:
