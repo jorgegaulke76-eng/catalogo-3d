@@ -55,7 +55,6 @@ def gerar_html_catalogo(lista_produtos, lote):
         .categoria-titulo{{color:#2c3e50; border-bottom:2px solid #3498db; margin-top:30px; padding-bottom:10px;}}
     </style></head><body><h1>Catálogo: {lote}</h1>"""
     
-    # Agrupa por categoria
     for categoria, group in df.groupby('Categoria'):
         html += f"<h2 class='categoria-titulo'>{categoria}</h2>"
         for _, p in group.iterrows():
@@ -68,7 +67,6 @@ st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
 
-# 1. Seção de Adição
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("🔗 Adicionar via Link")
@@ -98,12 +96,27 @@ with c2:
             })
             st.rerun()
 
-# 2. Prévia dos Produtos
+# Botões de controle fixos
+st.divider()
+col_btn1, col_btn2 = st.columns(2)
+if col_btn1.button("Gerar Arquivos Finais (Excel + HTML)"):
+    if st.session_state.produtos_totais:
+        df = pd.DataFrame(st.session_state.produtos_totais)
+        buf_excel = io.BytesIO()
+        df.to_excel(buf_excel, index=False)
+        st.download_button("📊 Baixar Excel", buf_excel, "catalogo.xlsx")
+        st.download_button("🖨️ Baixar HTML Agrupado", gerar_html_catalogo(st.session_state.produtos_totais, nome_lote), "catalogo.html", "text/html")
+    else:
+        st.warning("Adicione produtos primeiro!")
+
+if col_btn2.button("Limpar Tudo e Recomeçar"):
+    st.session_state.produtos_totais = []
+    st.rerun()
+
+# Prévia (aparece apenas se houver itens)
 if st.session_state.produtos_totais:
     st.divider()
     st.subheader(f"Prévia do Catálogo ({len(st.session_state.produtos_totais)} itens)")
-    
-    # Mostrar agrupado por categoria na interface
     df_preview = pd.DataFrame(st.session_state.produtos_totais)
     for categoria, group in df_preview.groupby('Categoria'):
         st.write(f"### 📂 {categoria}")
@@ -113,17 +126,3 @@ if st.session_state.produtos_totais:
                 cols[0].image(row['Imagem'], use_column_width=True)
                 cols[1].subheader(row['Nome_Exibicao'])
                 cols[1].write(row['Descrição'])
-    
-    # 3. Geração Final
-    st.divider()
-    if st.button("Gerar Arquivos Finais"):
-        df = pd.DataFrame(st.session_state.produtos_totais)
-        buf_excel = io.BytesIO()
-        df.to_excel(buf_excel, index=False)
-        st.download_button("📊 Baixar Excel", buf_excel, "catalogo.xlsx")
-        st.download_button("🖨️ Baixar HTML Agrupado", gerar_html_catalogo(st.session_state.produtos_totais, nome_lote), "catalogo.html", "text/html")
-        st.success("Arquivos gerados!")
-
-    if st.button("Limpar Tudo e Recomeçar"):
-        st.session_state.produtos_totais = []
-        st.rerun()
