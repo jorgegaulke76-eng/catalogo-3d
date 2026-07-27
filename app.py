@@ -7,7 +7,6 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -52,22 +51,38 @@ def gerar_anuncio_ia(nome_produto, contexto_manual=""):
 
 def gerar_html_catalogo(lista_produtos, lote):
     df = pd.DataFrame(lista_produtos)
-    # Adicionamos .page-break para forçar nova página em cada categoria
+    categorias = df['Categoria'].unique()
+    
+    # Monta a Capa (Sumário)
+    capa_links = ""
+    for cat in categorias:
+        id_cat = cat.replace(" ", "_")
+        capa_links += f"<li><a href='#{id_cat}'>{cat}</a></li>"
+
+    # HTML Final
     html = f"""<!DOCTYPE html><html><head><style>
         body{{font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background-color: #f9f9f9;}} 
-        h1{{text-align: center; color: #2c3e50; margin-bottom: 40px; border-bottom: 3px solid #3498db; padding-bottom: 10px;}}
+        h1{{text-align: center; color: #2c3e50; margin-bottom: 20px; border-bottom: 3px solid #3498db; padding-bottom: 10px;}}
+        .capa{{background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 50px; text-align: center;}}
+        .capa a{{display: block; font-size: 20px; margin: 10px 0; color: #2980b9; text-decoration: none; font-weight: bold;}}
+        .capa a:hover{{text-decoration: underline;}}
         .categoria-section{{page-break-before: always; margin-top: 40px;}}
         .categoria-titulo{{color: #34495e; padding: 15px; background: #e8f6f3; border-left: 10px solid #1abc9c; margin-bottom: 25px;}}
         .card{{display: flex; align-items: center; background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}} 
         img{{width: 180px; height: 180px; object-fit: cover; border-radius: 5px; margin-right: 25px;}}
         h2{{margin-top: 0; color: #2980b9;}}
-    </style></head><body><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1>"""
+    </style></head><body>
+    <h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1>
+    <div class="capa">
+        <h3>Selecione a Categoria:</h3>
+        {capa_links}
+    </div>
+    """
     
-    # Agrupa e aplica a classe de separação de página
+    # Conteúdo dos produtos
     for i, (categoria, group) in enumerate(df.groupby('Categoria')):
-        # A primeira página não precisa de quebra, as próximas sim
-        class_name = "categoria-section" if i > 0 else ""
-        html += f"<div class='{class_name}'><h2 class='categoria-titulo'>📂 {categoria}</h2>"
+        id_cat = categoria.replace(" ", "_")
+        html += f"<div id='{id_cat}' class='categoria-section'><h2 class='categoria-titulo'>📂 {categoria}</h2>"
         for _, p in group.iterrows():
             html += f"""<div class="card"><img src="{p['Imagem']}"><div><h2>{p['Nome_Exibicao']}</h2><p>{p['Descrição']}</p></div></div>"""
         html += "</div>"
