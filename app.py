@@ -5,6 +5,7 @@ import requests
 import base64
 from groq import Groq
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 # --- CONFIGURAÇÕES ---
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -14,23 +15,28 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 
 # --- FUNÇÕES ---
 
-def obter_imagem_direta(url):
-    """Retorna a URL da imagem. Se não for link direto, tenta pegar via meta tag."""
-    # Se já é um link direto de imagem, retorna ele mesmo
-    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
-        return url
-    
-    # Tenta pegar via meta tag (ex: og:image)
+def obter_imagem_como_base64(url):
+    """Busca a imagem e converte para base64 para contornar bloqueios."""
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=5)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        meta = soup.find("meta", property="og:image")
-        if meta and meta.get("content"): 
-            return meta["content"]
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': url # Tenta enganar o site dizendo que o pedido veio dele mesmo
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        # Se for um link de página (não de imagem), tenta achar a imagem principal
+        if 'text/html' in response.headers.get('Content-Type', ''):
+            soup = BeautifulSoup(response.content, 'html.parser')
+            meta = soup.find("meta", property="og:image")
+            if meta and meta.get("content"):
+                return obter_imagem_como_base64(meta["content"]) # Recursivo
+            return "https://i.ibb.co/kV0jyTfK/logo.png"
+
+        # Converte a imagem baixada para base64
+        b64 = base64.b64encode(response.content).decode()
+        return f"data:image/jpeg;base64,{b64}"
     except:
-        pass
-    return "https://i.ibb.co/kV0jyTfK/logo.png"
+        return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def image_to_base64(uploaded_file):
     return f"data:image/jpeg;base64,{base64.b64encode(uploaded_file.getvalue()).decode()}"
@@ -67,21 +73,22 @@ st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
 
-# 1. Seção de Adição (Links e Upload)
 c1, c2 = st.columns(2)
 
 with c1:
     st.subheader("🔗 Adicionar via Link")
     cat_link = st.text_input("Categoria (para este link):", "Outros")
-    st.info("💡 **DICA:** Para evitar erros, clique com botão direito na imagem do site -> 'Copiar endereço da imagem' e cole aqui.")
-    links_input = st.text_area("Cole o Link da IMAGEM (.jpg, .png, .webp):", height=100)
+    st.info("💡 **DICA:** Se o link direto da imagem falhar, clique com botão direito na imagem original -> 'Copiar endereço da imagem' e cole aqui.")
+    links_input = st.text_area("Cole a URL da Imagem:", height=100)
     if st.button("Adicionar Links ao Lote"):
         for linha in links_input.split('\n'):
             if not linha.strip(): continue
             partes = [p.strip() for p in linha.split('|')]
             link, desc = partes[0], (partes[1] if len(partes) > 1 else "")
+            # Chama a nova função que baixa a foto
+            img_b64 = obter_imagem_como_base64(link)
             st.session_state.produtos_totais.append({
-                "Nome_Exibicao": nome_lote, "Imagem": obter_imagem_direta(link), 
+                "Nome_Exibicao": nome_lote, "Imagem": img_b64, 
                 "Descrição": gerar_anuncio_ia(nome_lote, desc), "Categoria": cat_link
             })
         st.rerun()
@@ -99,7 +106,6 @@ with c2:
             })
             st.rerun()
 
-# 2. Área de Ação e Prévia
 st.divider()
 col_btn1, col_btn2 = st.columns(2)
 
@@ -117,7 +123,6 @@ if col_btn2.button("Limpar Tudo e Recomeçar"):
     st.session_state.produtos_totais = []
     st.rerun()
 
-# Prévia
 if st.session_state.produtos_totais:
     st.divider()
     st.subheader(f"Prévia do Catálogo ({len(st.session_state.produtos_totais)} itens)")
