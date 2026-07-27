@@ -7,6 +7,7 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -15,21 +16,33 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')): return url
-    if "makerworld.com" in url:
-        try:
-            api_url = f"https://api.microlink.io?url={url}"
-            response = requests.get(api_url, timeout=10)
-            data = response.json()
-            if 'data' in data and 'image' in data['data']: return data['data']['image']['url']
-        except: pass
+    """Busca a imagem do produto, lidando melhor com formatos webp e dinâmicos."""
+    # Se o usuário colou um link que é explicitamente uma imagem, aceitamos
+    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')): 
+        return url
+    
+    # Tentativa de Scraping mais robusta para pegar a imagem principal da página
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Procura primeiro pela meta tag og:image (geralmente a melhor qualidade)
         meta = soup.find("meta", property="og:image")
-        if meta and meta.get("content"): return meta["content"]
-    except: pass
+        if meta and meta.get("content"): 
+            return meta["content"]
+            
+        # Caso não ache a og:image, tenta buscar a primeira tag <img> que pareça ser o produto
+        img_tag = soup.find("img")
+        if img_tag and img_tag.get("src"):
+            return img_tag["src"]
+            
+    except: 
+        pass
+    
+    # Se tudo falhar, retorna o logo
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def image_to_base64(uploaded_file):
@@ -47,9 +60,18 @@ def gerar_anuncio_ia(nome_produto, contexto_manual=""):
     except: return f"{nome_produto} de alta qualidade."
 
 def gerar_html_catalogo(lista_produtos, lote):
-    html = f"""<!DOCTYPE html><html><head><style>body{{font-family:sans-serif; padding:30px;}} .card{{display:flex; border-left:8px solid #3498db; padding:20px; margin-bottom:20px; box-shadow:0 2px 5px #ccc;}} img{{width:150px; height:150px; object-fit:cover; margin-right:20px;}}</style></head><body><h1>Lote: {lote}</h1>"""
-    for p in lista_produtos:
-        html += f"""<div class="card"><img src="{p['Imagem']}"><div><h2>{p['Nome_Exibicao']}</h2><p>{p['Descrição']}</p></div></div>"""
+    df = pd.DataFrame(lista_produtos)
+    html = f"""<!DOCTYPE html><html><head><style>
+        body{{font-family:sans-serif; padding:30px;}} 
+        .card{{display:flex; border-left:8px solid #3498db; padding:20px; margin-bottom:20px; box-shadow:0 2px 5px #ccc;}} 
+        img{{width:150px; height:150px; object-fit:cover; margin-right:20px;}}
+        .categoria-titulo{{color:#2c3e50; border-bottom:2px solid #3498db; margin-top:30px; padding-bottom:10px;}}
+    </style></head><body><h1>Catálogo: {lote}</h1>"""
+    
+    for categoria, group in df.groupby('Categoria'):
+        html += f"<h2 class='categoria-titulo'>{categoria}</h2>"
+        for _, p in group.iterrows():
+            html += f"""<div class="card"><img src="{p['Imagem']}"><div><h2>{p['Nome_Exibicao']}</h2><p>{p['Descrição']}</p></div></div>"""
     return html + "</body></html>"
 
 # --- INTERFACE ---
@@ -58,54 +80,66 @@ st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
 
-# 1. Seção de Adição (Links ou Upload)
+# 1. Seção de Adição (Links e Upload)
 c1, c2 = st.columns(2)
+
 with c1:
     st.subheader("🔗 Adicionar via Link")
-    links_input = st.text_area("Cole os produtos (URL | Detalhes):", height=150)
+    cat_link = st.text_input("Categoria (para este link):", "Outros")
+    st.info("💡 **Dica:** Se a imagem não carregar, tente clicar com o botão direito na imagem original -> 'Copiar endereço da imagem'.")
+    links_input = st.text_area("Cole a URL abaixo:", height=100)
     if st.button("Adicionar Links ao Lote"):
         for linha in links_input.split('\n'):
             if not linha.strip(): continue
             partes = [p.strip() for p in linha.split('|')]
             link, desc = partes[0], (partes[1] if len(partes) > 1 else "")
-            st.session_state.produtos_totais.append({"Nome_Exibicao": nome_lote, "Imagem": obter_imagem_original(link), "Descrição": gerar_anuncio_ia(nome_lote, desc)})
+            st.session_state.produtos_totais.append({
+                "Nome_Exibicao": nome_lote, "Imagem": obter_imagem_original(link), 
+                "Descrição": gerar_anuncio_ia(nome_lote, desc), "Categoria": cat_link
+            })
         st.rerun()
 
 with c2:
     st.subheader("📁 Adicionar via Upload")
-    foto = st.file_uploader("Subir foto", type=['jpg', 'png', 'jpeg'])
-    desc_manual = st.text_area("Detalhes do produto:", height=90)
+    cat_up = st.text_input("Categoria (para este upload):", "Outros")
+    foto = st.file_uploader("Subir foto", type=['jpg', 'png', 'jpeg', 'webp'])
+    desc_manual = st.text_area("Detalhes do produto:", height=60)
     if st.button("Adicionar Foto ao Lote"):
         if foto:
-            st.session_state.produtos_totais.append({"Nome_Exibicao": nome_lote, "Imagem": image_to_base64(foto), "Descrição": gerar_anuncio_ia(nome_lote, desc_manual)})
+            st.session_state.produtos_totais.append({
+                "Nome_Exibicao": nome_lote, "Imagem": image_to_base64(foto), 
+                "Descrição": gerar_anuncio_ia(nome_lote, desc_manual), "Categoria": cat_up
+            })
             st.rerun()
 
-# 2. Prévia dos Produtos (Onde você vê a lista)
-if st.session_state.produtos_totais:
-    st.divider()
-    st.subheader(f"Prévia do Catálogo ({len(st.session_state.produtos_totais)} itens)")
-    
-    for i, row in enumerate(st.session_state.produtos_totais):
-        with st.container(border=True):
-            cols = st.columns([1, 4])
-            cols[0].image(row['Imagem'], use_column_width=True)
-            cols[1].subheader(row['Nome_Exibicao'])
-            cols[1].write(row['Descrição'])
-            st.text_area("Copie p/ Redes:", value=f"🚀 {row['Nome_Exibicao']}\n\n{row['Descrição']}", height=120, key=f"txt_{i}")
+# 2. Área de Ação e Prévia
+st.divider()
+col_btn1, col_btn2 = st.columns(2)
 
-    # 3. Geração Final
-    st.divider()
-    if st.button("Gerar Arquivos Finais (Excel + HTML)"):
+if col_btn1.button("Gerar Arquivos Finais (Excel + HTML)"):
+    if st.session_state.produtos_totais:
         df = pd.DataFrame(st.session_state.produtos_totais)
-        
-        # Botões de Download que aparecem no final
         buf_excel = io.BytesIO()
         df.to_excel(buf_excel, index=False)
         st.download_button("📊 Baixar Excel", buf_excel, "catalogo.xlsx")
-        st.download_button("🖨️ Baixar HTML", gerar_html_catalogo(st.session_state.produtos_totais, nome_lote), "catalogo.html", "text/html")
-        
-        st.success("Arquivos gerados!")
+        st.download_button("🖨️ Baixar HTML Agrupado", gerar_html_catalogo(st.session_state.produtos_totais, nome_lote), "catalogo.html", "text/html")
+    else:
+        st.warning("Adicione produtos primeiro!")
 
-    if st.button("Limpar Tudo e Recomeçar"):
-        st.session_state.produtos_totais = []
-        st.rerun()
+if col_btn2.button("Limpar Tudo e Recomeçar"):
+    st.session_state.produtos_totais = []
+    st.rerun()
+
+# Prévia
+if st.session_state.produtos_totais:
+    st.divider()
+    st.subheader(f"Prévia do Catálogo ({len(st.session_state.produtos_totais)} itens)")
+    df_preview = pd.DataFrame(st.session_state.produtos_totais)
+    for categoria, group in df_preview.groupby('Categoria'):
+        st.write(f"### 📂 {categoria}")
+        for _, row in group.iterrows():
+            with st.container(border=True):
+                cols = st.columns([1, 4])
+                cols[0].image(row['Imagem'], use_column_width=True)
+                cols[1].subheader(row['Nome_Exibicao'])
+                cols[1].write(row['Descrição'])
