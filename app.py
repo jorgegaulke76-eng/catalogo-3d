@@ -7,7 +7,6 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -15,34 +14,22 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 
 # --- FUNÇÕES ---
 
-def obter_imagem_original(url):
-    """Busca a imagem do produto, lidando melhor com formatos webp e dinâmicos."""
-    # Se o usuário colou um link que é explicitamente uma imagem, aceitamos
-    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')): 
+def obter_imagem_direta(url):
+    """Retorna a URL da imagem. Se não for link direto, tenta pegar via meta tag."""
+    # Se já é um link direto de imagem, retorna ele mesmo
+    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
         return url
     
-    # Tentativa de Scraping mais robusta para pegar a imagem principal da página
+    # Tenta pegar via meta tag (ex: og:image)
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=10)
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Procura primeiro pela meta tag og:image (geralmente a melhor qualidade)
         meta = soup.find("meta", property="og:image")
         if meta and meta.get("content"): 
             return meta["content"]
-            
-        # Caso não ache a og:image, tenta buscar a primeira tag <img> que pareça ser o produto
-        img_tag = soup.find("img")
-        if img_tag and img_tag.get("src"):
-            return img_tag["src"]
-            
-    except: 
+    except:
         pass
-    
-    # Se tudo falhar, retorna o logo
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def image_to_base64(uploaded_file):
@@ -86,15 +73,15 @@ c1, c2 = st.columns(2)
 with c1:
     st.subheader("🔗 Adicionar via Link")
     cat_link = st.text_input("Categoria (para este link):", "Outros")
-    st.info("💡 **Dica:** Se a imagem não carregar, tente clicar com o botão direito na imagem original -> 'Copiar endereço da imagem'.")
-    links_input = st.text_area("Cole a URL abaixo:", height=100)
+    st.info("💡 **DICA:** Para evitar erros, clique com botão direito na imagem do site -> 'Copiar endereço da imagem' e cole aqui.")
+    links_input = st.text_area("Cole o Link da IMAGEM (.jpg, .png, .webp):", height=100)
     if st.button("Adicionar Links ao Lote"):
         for linha in links_input.split('\n'):
             if not linha.strip(): continue
             partes = [p.strip() for p in linha.split('|')]
             link, desc = partes[0], (partes[1] if len(partes) > 1 else "")
             st.session_state.produtos_totais.append({
-                "Nome_Exibicao": nome_lote, "Imagem": obter_imagem_original(link), 
+                "Nome_Exibicao": nome_lote, "Imagem": obter_imagem_direta(link), 
                 "Descrição": gerar_anuncio_ia(nome_lote, desc), "Categoria": cat_link
             })
         st.rerun()
