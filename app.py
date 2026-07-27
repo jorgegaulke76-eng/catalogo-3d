@@ -7,6 +7,7 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -15,21 +16,33 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 # --- FUNÇÕES ---
 
 def obter_imagem_original(url):
-    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')): return url
+    """Busca a imagem do produto com cabeçalhos robustos para evitar bloqueios."""
+    if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')): 
+        return url
+    
+    # Tenta via Microlink (melhor para sites protegidos)
     if "makerworld.com" in url:
         try:
             api_url = f"https://api.microlink.io?url={url}"
             response = requests.get(api_url, timeout=10)
             data = response.json()
-            if 'data' in data and 'image' in data['data']: return data['data']['image']['url']
-        except: pass
+            if 'data' in data and 'image' in data['data']: 
+                return data['data']['image']['url']
+        except: 
+            pass
+            
+    # Tenta via Scraping direto com cabeçalho de navegador real
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.content, 'html.parser')
         meta = soup.find("meta", property="og:image")
-        if meta and meta.get("content"): return meta["content"]
-    except: pass
+        if meta and meta.get("content"): 
+            return meta["content"]
+    except: 
+        pass
     return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def image_to_base64(uploaded_file):
@@ -67,11 +80,13 @@ st.title("📦 ALPHAFEST ITATIBA - Gerador de Catálogo")
 
 nome_lote = st.text_input("Nome do Lote:", "Lote Geral")
 
+# 1. Seção de Adição (Links e Upload)
 c1, c2 = st.columns(2)
+
 with c1:
     st.subheader("🔗 Adicionar via Link")
-    cat_link = st.text_input("Categoria (Link):", "Outros")
-    links_input = st.text_area("Cole os produtos (URL | Detalhes):", height=100)
+    cat_link = st.text_input("Categoria (para este link):", "Outros")
+    links_input = st.text_area("Cole a URL abaixo (não cole o link aqui em cima, cole na caixa abaixo):", height=100)
     if st.button("Adicionar Links ao Lote"):
         for linha in links_input.split('\n'):
             if not linha.strip(): continue
@@ -85,7 +100,7 @@ with c1:
 
 with c2:
     st.subheader("📁 Adicionar via Upload")
-    cat_up = st.text_input("Categoria (Upload):", "Outros")
+    cat_up = st.text_input("Categoria (para este upload):", "Outros")
     foto = st.file_uploader("Subir foto", type=['jpg', 'png', 'jpeg'])
     desc_manual = st.text_area("Detalhes do produto:", height=60)
     if st.button("Adicionar Foto ao Lote"):
@@ -96,9 +111,10 @@ with c2:
             })
             st.rerun()
 
-# Botões de controle fixos
+# 2. Área de Ação e Prévia
 st.divider()
 col_btn1, col_btn2 = st.columns(2)
+
 if col_btn1.button("Gerar Arquivos Finais (Excel + HTML)"):
     if st.session_state.produtos_totais:
         df = pd.DataFrame(st.session_state.produtos_totais)
@@ -113,7 +129,6 @@ if col_btn2.button("Limpar Tudo e Recomeçar"):
     st.session_state.produtos_totais = []
     st.rerun()
 
-# Prévia (aparece apenas se houver itens)
 if st.session_state.produtos_totais:
     st.divider()
     st.subheader(f"Prévia do Catálogo ({len(st.session_state.produtos_totais)} itens)")
