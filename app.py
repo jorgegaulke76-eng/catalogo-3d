@@ -7,6 +7,7 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -20,7 +21,7 @@ def obter_imagem_original(url):
     if url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')): 
         return url
     
-    # Tenta via scraping para sites que não bloqueiam
+    # Tenta via scraping (funciona para sites que não bloqueiam)
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -77,6 +78,8 @@ c1, c2 = st.columns(2)
 with c1:
     st.subheader("🔗 Adicionar via Link")
     cat_link = st.text_input("Categoria (para este link):", "Outros")
+    # AVISO IMPORTANTE PARA O USUÁRIO
+    st.info("💡 **Dica:** Se a imagem não carregar, clique com o botão direito na imagem do produto no site original, selecione 'Copiar endereço da imagem' e cole esse link terminado em .jpg ou .png aqui abaixo.")
     links_input = st.text_area("Cole a URL abaixo:", height=100)
     if st.button("Adicionar Links ao Lote"):
         for linha in links_input.split('\n'):
