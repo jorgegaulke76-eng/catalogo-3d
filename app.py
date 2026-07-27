@@ -7,6 +7,7 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -53,13 +54,11 @@ def gerar_html_catalogo(lista_produtos, lote):
     df = pd.DataFrame(lista_produtos)
     categorias = df['Categoria'].unique()
     
-    # Monta a Capa (Sumário)
     capa_links = ""
     for cat in categorias:
         id_cat = cat.replace(" ", "_")
         capa_links += f"<li><a href='#{id_cat}'>{cat}</a></li>"
 
-    # HTML Final
     html = f"""<!DOCTYPE html><html><head><style>
         body{{font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background-color: #f9f9f9;}} 
         h1{{text-align: center; color: #2c3e50; margin-bottom: 20px; border-bottom: 3px solid #3498db; padding-bottom: 10px;}}
@@ -79,7 +78,6 @@ def gerar_html_catalogo(lista_produtos, lote):
     </div>
     """
     
-    # Conteúdo dos produtos
     for i, (categoria, group) in enumerate(df.groupby('Categoria')):
         id_cat = categoria.replace(" ", "_")
         html += f"<div id='{id_cat}' class='categoria-section'><h2 class='categoria-titulo'>📂 {categoria}</h2>"
@@ -117,7 +115,8 @@ with c1:
 with c2:
     st.subheader("📁 Adicionar via Upload")
     cat_up = st.text_input("Categoria (para este upload):", "Outros")
-    foto = st.file_uploader("Subir foto", type=['jpg', 'png', 'jpeg', 'webp'])
+    # Usamos uma chave única (key) para controlar o uploader
+    foto = st.file_uploader("Subir foto", type=['jpg', 'png', 'jpeg', 'webp'], key="uploader_foto")
     desc_manual = st.text_area("Detalhes do produto:", height=60)
     if st.button("Adicionar Foto ao Lote"):
         if foto:
@@ -140,8 +139,10 @@ if col_btn1.button("Gerar Arquivos Finais (Excel + HTML)"):
     else:
         st.warning("Adicione produtos primeiro!")
 
+# Botão Limpar Tudo corrigido
 if col_btn2.button("Limpar Tudo e Recomeçar"):
     st.session_state.produtos_totais = []
+    # O truque abaixo força o Streamlit a redesenhar os componentes, limpando o upload
     st.rerun()
 
 if st.session_state.produtos_totais:
