@@ -5,9 +5,9 @@ import requests
 import base64
 from groq import Groq
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
 
 # --- CONFIGURAÇÕES ---
+# Lembre-se de manter sua chave GROQ_API_KEY no Streamlit Cloud
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -20,19 +20,17 @@ def obter_imagem_como_base64(url):
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': url # Tenta enganar o site dizendo que o pedido veio dele mesmo
+            'Referer': url
         }
         response = requests.get(url, headers=headers, timeout=10)
         
-        # Se for um link de página (não de imagem), tenta achar a imagem principal
         if 'text/html' in response.headers.get('Content-Type', ''):
             soup = BeautifulSoup(response.content, 'html.parser')
             meta = soup.find("meta", property="og:image")
             if meta and meta.get("content"):
-                return obter_imagem_como_base64(meta["content"]) # Recursivo
+                return obter_imagem_como_base64(meta["content"])
             return "https://i.ibb.co/kV0jyTfK/logo.png"
 
-        # Converte a imagem baixada para base64
         b64 = base64.b64encode(response.content).decode()
         return f"data:image/jpeg;base64,{b64}"
     except:
@@ -54,17 +52,26 @@ def gerar_anuncio_ia(nome_produto, contexto_manual=""):
 
 def gerar_html_catalogo(lista_produtos, lote):
     df = pd.DataFrame(lista_produtos)
+    # Adicionamos .page-break para forçar nova página em cada categoria
     html = f"""<!DOCTYPE html><html><head><style>
-        body{{font-family:sans-serif; padding:30px;}} 
-        .card{{display:flex; border-left:8px solid #3498db; padding:20px; margin-bottom:20px; box-shadow:0 2px 5px #ccc;}} 
-        img{{width:150px; height:150px; object-fit:cover; margin-right:20px;}}
-        .categoria-titulo{{color:#2c3e50; border-bottom:2px solid #3498db; margin-top:30px; padding-bottom:10px;}}
-    </style></head><body><h1>Catálogo: {lote}</h1>"""
+        body{{font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background-color: #f9f9f9;}} 
+        h1{{text-align: center; color: #2c3e50; margin-bottom: 40px; border-bottom: 3px solid #3498db; padding-bottom: 10px;}}
+        .categoria-section{{page-break-before: always; margin-top: 40px;}}
+        .categoria-titulo{{color: #34495e; padding: 15px; background: #e8f6f3; border-left: 10px solid #1abc9c; margin-bottom: 25px;}}
+        .card{{display: flex; align-items: center; background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}} 
+        img{{width: 180px; height: 180px; object-fit: cover; border-radius: 5px; margin-right: 25px;}}
+        h2{{margin-top: 0; color: #2980b9;}}
+    </style></head><body><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1>"""
     
-    for categoria, group in df.groupby('Categoria'):
-        html += f"<h2 class='categoria-titulo'>{categoria}</h2>"
+    # Agrupa e aplica a classe de separação de página
+    for i, (categoria, group) in enumerate(df.groupby('Categoria')):
+        # A primeira página não precisa de quebra, as próximas sim
+        class_name = "categoria-section" if i > 0 else ""
+        html += f"<div class='{class_name}'><h2 class='categoria-titulo'>📂 {categoria}</h2>"
         for _, p in group.iterrows():
             html += f"""<div class="card"><img src="{p['Imagem']}"><div><h2>{p['Nome_Exibicao']}</h2><p>{p['Descrição']}</p></div></div>"""
+        html += "</div>"
+        
     return html + "</body></html>"
 
 # --- INTERFACE ---
@@ -78,14 +85,13 @@ c1, c2 = st.columns(2)
 with c1:
     st.subheader("🔗 Adicionar via Link")
     cat_link = st.text_input("Categoria (para este link):", "Outros")
-    st.info("💡 **DICA:** Se o link direto da imagem falhar, clique com botão direito na imagem original -> 'Copiar endereço da imagem' e cole aqui.")
+    st.info("💡 **DICA:** Se o link direto falhar, clique com botão direito na imagem -> 'Copiar endereço da imagem'.")
     links_input = st.text_area("Cole a URL da Imagem:", height=100)
     if st.button("Adicionar Links ao Lote"):
         for linha in links_input.split('\n'):
             if not linha.strip(): continue
             partes = [p.strip() for p in linha.split('|')]
             link, desc = partes[0], (partes[1] if len(partes) > 1 else "")
-            # Chama a nova função que baixa a foto
             img_b64 = obter_imagem_como_base64(link)
             st.session_state.produtos_totais.append({
                 "Nome_Exibicao": nome_lote, "Imagem": img_b64, 
