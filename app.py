@@ -77,6 +77,7 @@ def gerar_html_master(lista, logo_path):
 # --- INTERFACE CENTRALIZADA ---
 c_left, c_main, c_right = st.columns([1, 6, 1])
 with c_main:
+    # Logo Centralizada
     col_a, col_b, col_c = st.columns([1, 2, 1])
     if os.path.exists(LOGO_FILE): col_b.image(LOGO_FILE, use_container_width=True)
     
@@ -132,7 +133,7 @@ with c_main:
 
     st.divider()
     
-    # 3. Listagem com Segurança
+    # 3. Listagem CORRIGIDA
     col_gen1, col_gen2 = st.columns([4, 1])
     col_gen1.subheader("📦 Produtos Cadastrados")
     col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
@@ -142,12 +143,9 @@ with c_main:
             c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
             imgs = p.get('Imagens', [])
             
-            # --- SEGURANÇA CONTRA ERROS ---
+            # CORREÇÃO: Exibe se for arquivo local OR link web
             if imgs and imgs[0]:
-                if os.path.exists(imgs[0]):
-                    c_row1.image(imgs[0], width=80)
-                else:
-                    c_row1.caption("🖼️ Sem foto")
+                c_row1.image(imgs[0], width=80) 
             
             c_row2.write(f"### {p.get('Nome')}")
             c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
