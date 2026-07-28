@@ -73,10 +73,14 @@ def gerar_html_catalogo(lista_produtos):
         
         .categoria-section{{page-break-before: always; margin-top: 30px;}}
         .categoria-titulo{{color: #34495e; padding: 10px; background: #e8f6f3; border-left: 8px solid #1abc9c; margin-bottom: 20px;}}
-        .card{{display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}} 
+        
+        /* Cards Centralizados */
+        .card-container{{display: flex; flex-direction: column; align-items: center;}}
+        .card{{display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 80%;}} 
         img{{width: 100px; height: 100px; object-fit: cover; border-radius: 5px; margin-right: 15px; cursor: pointer; transition: transform 0.2s;}}
         img:hover{{transform: scale(1.05);}}
         h2{{margin-top: 0; color: #2980b9; font-size: 1.2rem;}}
+        
         .lightbox {{ display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }}
         .lightbox-img {{ max-width: 90%; max-height: 80%; margin: auto; display: block; position: relative; top: 10%; border: 2px solid white; }}
         .close-btn {{ position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; }}
@@ -99,10 +103,10 @@ def gerar_html_catalogo(lista_produtos):
     
     for i, (categoria, group) in enumerate(df.groupby('Categoria')):
         id_cat = categoria.replace(" ", "_")
-        html += f"<div id='{id_cat}' class='categoria-section'><h2 class='categoria-titulo'>📂 {categoria}</h2>"
+        html += f"<div id='{id_cat}' class='categoria-section'><h2 class='categoria-titulo'>📂 {categoria}</h2><div class='card-container'>"
         for _, p in group.iterrows():
             html += f"""<div class="card"><img src="{p['Imagem']}" onclick="openLightbox('{p['Imagem']}')"><div><h2>{p['Nome_Exibicao']}</h2><p>{p['Descrição']}</p></div></div>"""
-        html += "</div>"
+        html += "</div></div>"
         
     return html + "</body></html>"
 
