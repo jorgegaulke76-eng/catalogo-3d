@@ -154,7 +154,7 @@ with c2:
 st.divider()
 if st.button("GERAR CATÁLOGO MASTER FINAL"):
     if st.session_state.produtos_totais:
-        st.download_button("🖨️ Baixar HTML Master", gerar_html_catalogo(st.session_state.produtos_totais), "catalogo_master.html", "text/html")
+        st.download_button("🖨️ Baixar HTML Master", gerar_html_catalogo(st.session_state.produtos_totais), "catalogo_novo.html", "text/html")
     else:
         st.warning("Adicione produtos primeiro!")
 
