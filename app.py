@@ -62,8 +62,15 @@ def gerar_html_catalogo(lista_produtos):
     html = f"""<!DOCTYPE html><html><head><style>
         body{{font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f9f9f9;}} 
         h1{{text-align: center; color: #2c3e50; margin-bottom: 20px; border-bottom: 3px solid #3498db; padding-bottom: 10px;}}
-        .capa{{background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; text-align: center;}}
-        .capa a{{display: block; font-size: 18px; margin: 10px 0; color: #2980b9; text-decoration: none; font-weight: bold;}}
+        
+        /* Ajuste do Menu Vertical */
+        .capa{{background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; text-align: left;}}
+        .capa h3{{margin-top: 0; color: #34495e; border-bottom: 1px solid #ddd; padding-bottom: 10px;}}
+        .capa ul{{list-style: none; padding: 0;}}
+        .capa li{{margin: 8px 0;}}
+        .capa a{{display: block; font-size: 16px; color: #2980b9; text-decoration: none; font-weight: bold; padding: 5px; border-radius: 4px; transition: background 0.2s;}}
+        .capa a:hover{{background: #f0f0f0;}}
+        
         .categoria-section{{page-break-before: always; margin-top: 30px;}}
         .categoria-titulo{{color: #34495e; padding: 10px; background: #e8f6f3; border-left: 8px solid #1abc9c; margin-bottom: 20px;}}
         .card{{display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}} 
@@ -82,7 +89,7 @@ def gerar_html_catalogo(lista_produtos):
     <h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1>
     <div class="capa">
         <h3>Menu de Categorias:</h3>
-        {capa_links}
+        <ul>{capa_links}</ul>
     </div>
     <div id="lightbox" class="lightbox" onclick="closeLightbox()">
         <span class="close-btn">&times;</span>
