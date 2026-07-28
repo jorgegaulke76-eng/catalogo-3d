@@ -40,7 +40,7 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 if "edit_index" not in st.session_state: st.session_state.edit_index = None
 if "temp_desc" not in st.session_state: st.session_state.temp_desc = ""
 
-# --- GERADOR DE HTML (ESTRUTURA FIXA) ---
+# --- GERADOR DE HTML (CORRIGIDO) ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
@@ -55,7 +55,7 @@ def gerar_html_master(lista, logo_path):
         nav a {{ color: white; text-decoration: none; font-weight: bold; white-space: nowrap; }}
         .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }}
         .card {{ background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
-        .card img {{ width: 100%; height: 200px; object-fit: cover; border-radius: 10px; cursor: pointer; }}
+        .card img {{ width: 100%; height: 200px; object-fit: cover; border-radius: 10px; }}
         .preco {{ color: #27ae60; font-size: 1.3em; font-weight: bold; display: block; margin-top: 10px; }}
     </style></head><body>
     <div class='header'><img src="{final_logo_src}" class='logo'><h1>Catálogo Alphafest</h1></div>
@@ -68,8 +68,12 @@ def gerar_html_master(lista, logo_path):
             html += f"<h2 id='{cat.replace(' ', '_')}'>{cat}</h2><div class='grid'>"
             for _, p in df[df['Categoria'] == cat].iterrows():
                 imgs = p.get('Imagens', [])
-                img_src = get_image_base64(imgs[0]) if (imgs and os.path.exists(imgs[0])) else (imgs[0] if imgs else "")
-                html += f"""<div class='card'><img src='{img_src}'><h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span class='preco'>R$ {p.get('Preco')}</span></div>"""
+                # Verifica segurança para evitar quebras no HTML
+                img_src = get_image_base64(imgs[0]) if (imgs and os.path.exists(imgs[0])) else ""
+                html += f"""<div class='card'>
+                    {f"<img src='{img_src}'>" if img_src else ""}
+                    <h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span class='preco'>R$ {p.get('Preco')}</span>
+                </div>"""
             html += "</div>"
     html += "</div></body></html>"
     return html
@@ -77,7 +81,6 @@ def gerar_html_master(lista, logo_path):
 # --- INTERFACE CENTRALIZADA ---
 c_left, c_main, c_right = st.columns([1, 6, 1])
 with c_main:
-    # Logo Centralizada
     col_a, col_b, col_c = st.columns([1, 2, 1])
     if os.path.exists(LOGO_FILE): col_b.image(LOGO_FILE, use_container_width=True)
     
@@ -143,12 +146,18 @@ with c_main:
             c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
             imgs = p.get('Imagens', [])
             
-            # CORREÇÃO: Exibe se for arquivo local OR link web
-            if imgs and imgs[0]:
-                c_row1.image(imgs[0], width=80) 
+            # --- PROTEÇÃO CONTRA ERRO DE IMAGEM INEXISTENTE ---
+            if imgs and imgs[0] and os.path.exists(imgs[0]):
+                c_row1.image(imgs[0], width=80)
+            else:
+                c_row1.caption("📷 Sem foto")
+            # --------------------------------------------------
             
             c_row2.write(f"### {p.get('Nome')}")
             c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
             
             if c_row3.button("✏️ Editar", key=f"e{i}"): st.session_state.edit_index = i; st.rerun()
-            if c_row3.button("🗑️ Excluir", key=f"d{i}"): st.session_state.produtos_totais.pop(i); salvar_catalogo(st.session_state.produtos_totais); st.rerun()
+            if c_row3.button("🗑️ Excluir", key=f"d{i}"): 
+                st.session_state.produtos_totais.pop(i)
+                salvar_catalogo(st.session_state.produtos_totais)
+                st.rerun()
