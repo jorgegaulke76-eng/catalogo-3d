@@ -27,10 +27,13 @@ def salvar_catalogo(lista):
 
 def get_image_base64(path):
     if not path or not os.path.exists(path): return ""
-    with open(path, "rb") as image_file:
-        encoded = base64.b64encode(image_file.read()).decode('utf-8')
-        ext = os.path.splitext(path)[1].replace('.', '')
-        return f"data:image/{ext};base64,{encoded}"
+    try:
+        with open(path, "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode('utf-8')
+            ext = os.path.splitext(path)[1].replace('.', '')
+            return f"data:image/{ext};base64,{encoded}"
+    except:
+        return ""
 
 def otimizar_descricao_ia(nome, desc_raw):
     return f"Produto exclusivo Alphafest: {nome}. {desc_raw.strip()} | Acabamento impecável, produzido com máquinas de última geração para garantir a perfeição em cada peça."
@@ -40,7 +43,7 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 if "edit_index" not in st.session_state: st.session_state.edit_index = None
 if "temp_desc" not in st.session_state: st.session_state.temp_desc = ""
 
-# --- GERADOR DE HTML (CORRIGIDO) ---
+# --- GERADOR DE HTML ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
@@ -68,8 +71,7 @@ def gerar_html_master(lista, logo_path):
             html += f"<h2 id='{cat.replace(' ', '_')}'>{cat}</h2><div class='grid'>"
             for _, p in df[df['Categoria'] == cat].iterrows():
                 imgs = p.get('Imagens', [])
-                # Verifica segurança para evitar quebras no HTML
-                img_src = get_image_base64(imgs[0]) if (imgs and os.path.exists(imgs[0])) else ""
+                img_src = get_image_base64(imgs[0]) if (imgs and len(imgs) > 0 and os.path.exists(imgs[0])) else ""
                 html += f"""<div class='card'>
                     {f"<img src='{img_src}'>" if img_src else ""}
                     <h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span class='preco'>R$ {p.get('Preco')}</span>
@@ -81,13 +83,11 @@ def gerar_html_master(lista, logo_path):
 # --- INTERFACE CENTRALIZADA ---
 c_left, c_main, c_right = st.columns([1, 6, 1])
 with c_main:
-    col_a, col_b, col_c = st.columns([1, 2, 1])
-    if os.path.exists(LOGO_FILE): col_b.image(LOGO_FILE, use_container_width=True)
+    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, use_container_width=True)
     
     st.markdown("<h1 style='text-align: center;'>Gestor Alphafest Master</h1>", unsafe_allow_html=True)
     st.divider()
 
-    # 1. Backup
     with st.expander("💾 Backup e Segurança"):
         col_b1, col_b2 = st.columns(2)
         col_b1.download_button("📥 Baixar Backup JSON", data=json.dumps(st.session_state.produtos_totais), file_name="backup.json")
@@ -97,7 +97,6 @@ with c_main:
             salvar_catalogo(st.session_state.produtos_totais)
             st.rerun()
 
-    # 2. Edição
     if st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         item = st.session_state.produtos_totais[idx]
@@ -136,7 +135,6 @@ with c_main:
 
     st.divider()
     
-    # 3. Listagem CORRIGIDA
     col_gen1, col_gen2 = st.columns([4, 1])
     col_gen1.subheader("📦 Produtos Cadastrados")
     col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
@@ -146,12 +144,16 @@ with c_main:
             c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
             imgs = p.get('Imagens', [])
             
-            # --- PROTEÇÃO CONTRA ERRO DE IMAGEM INEXISTENTE ---
-            if imgs and imgs[0] and os.path.exists(imgs[0]):
-                c_row1.image(imgs[0], width=80)
-            else:
-                c_row1.caption("📷 Sem foto")
-            # --------------------------------------------------
+            # BLOCO DE PROTEÇÃO
+            if imgs and len(imgs) > 0:
+                caminho = imgs[0]
+                # Se for URL, tenta carregar. Se for local, verifica existence
+                if "http" in caminho:
+                    c_row1.image(caminho, width=80)
+                elif os.path.exists(caminho):
+                    c_row1.image(caminho, width=80)
+                else:
+                    c_row1.write("📷")
             
             c_row2.write(f"### {p.get('Nome')}")
             c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
