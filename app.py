@@ -26,6 +26,7 @@ def salvar_catalogo(lista):
         json.dump(lista, f, indent=4)
 
 def get_image_base64(path):
+    # Função segura para HTML
     if not path or not os.path.exists(path): return ""
     try:
         with open(path, "rb") as image_file:
@@ -47,7 +48,7 @@ if "temp_desc" not in st.session_state: st.session_state.temp_desc = ""
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
-    final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else logo_path
+    final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else ""
     
     html = f"""<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -144,16 +145,16 @@ with c_main:
             c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
             imgs = p.get('Imagens', [])
             
-            # BLOCO DE PROTEÇÃO
-            if imgs and len(imgs) > 0:
-                caminho = imgs[0]
-                # Se for URL, tenta carregar. Se for local, verifica existence
-                if "http" in caminho:
-                    c_row1.image(caminho, width=80)
-                elif os.path.exists(caminho):
-                    c_row1.image(caminho, width=80)
+            # --- PROTEÇÃO TOTAL AQUI ---
+            try:
+                if imgs and len(imgs) > 0 and os.path.exists(imgs[0]):
+                    c_row1.image(imgs[0], width=80)
                 else:
                     c_row1.write("📷")
+            except Exception as e:
+                # Se algo falhar na imagem, apenas escreve um aviso e não trava o app
+                c_row1.write("⚠️")
+            # ---------------------------
             
             c_row2.write(f"### {p.get('Nome')}")
             c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
