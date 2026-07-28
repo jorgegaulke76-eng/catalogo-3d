@@ -6,7 +6,9 @@ import base64
 
 # Configurações do App
 st.set_page_config(page_title="Gestor Alphafest Master", layout="wide")
-DB_FILE = "catalogo_db.json"
+
+# MUDANÇA: Nome do arquivo alterado para forçar a limpeza do banco corrompido
+DB_FILE = "catalogo_v3.json"
 UPLOAD_DIR = "uploads"
 LOGO_FILE = "logo.png"
 
@@ -25,40 +27,82 @@ def salvar_catalogo(lista):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(lista, f, indent=4)
 
+def get_image_base64(path):
+    if not path or not os.path.exists(path): return ""
+    try:
+        with open(path, "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode('utf-8')
+            ext = os.path.splitext(path)[1].replace('.', '')
+            return f"data:image/{ext};base64,{encoded}"
+    except:
+        return ""
+
 # Inicialização
 if "produtos_totais" not in st.session_state: st.session_state.produtos_totais = carregar_catalogo()
+if "edit_index" not in st.session_state: st.session_state.edit_index = None
+
+# --- GERADOR DE HTML ---
+def gerar_html_master(lista, logo_path):
+    df = pd.DataFrame(lista)
+    categorias = df['Categoria'].unique() if not df.empty else []
+    final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else ""
+    
+    html = f"<html><body><h1>Catálogo Alphafest</h1>"
+    if not df.empty:
+        for cat in categorias:
+            html += f"<h2>{cat}</h2>"
+            for _, p in df[df['Categoria'] == cat].iterrows():
+                html += f"<div><h3>{p.get('Nome')}</h3><p>R$ {p.get('Preco')}</p></div>"
+    html += "</body></html>"
+    return html
 
 # --- INTERFACE ---
 c_left, c_main, c_right = st.columns([1, 6, 1])
 with c_main:
     st.title("Gestor Alphafest Master")
     
-    # 3. Listagem com Proteção Extrema
-    st.subheader("📦 Produtos Cadastrados")
+    with st.expander("➕ Adicionar Produto"):
+        cat = st.text_input("Categoria")
+        nome = st.text_input("Nome do Produto")
+        preco = st.text_input("Preço")
+        upload = st.file_uploader("Upload Foto", type=['jpg', 'png', 'jpeg'])
+        
+        if st.button("✅ Salvar"):
+            lista_imgs = []
+            if upload:
+                caminho = os.path.join(UPLOAD_DIR, upload.name)
+                with open(caminho, "wb") as f: f.write(upload.getbuffer())
+                lista_imgs.append(caminho)
+            
+            st.session_state.produtos_totais.append({"Nome": nome, "Categoria": cat, "Imagens": lista_imgs, "Preco": preco})
+            salvar_catalogo(st.session_state.produtos_totais)
+            st.rerun()
+
+    st.divider()
     
+    # LISTAGEM COM PROTEÇÃO TOTAL CONTRA O ERRO
+    st.subheader("📦 Produtos Cadastrados")
     for i, p in enumerate(st.session_state.produtos_totais):
         with st.container(border=True):
-            c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
-            imgs = p.get('Imagens', [])
+            cols = st.columns([1, 4])
             
-            # --- PROTEÇÃO ABSOLUTA ---
-            # Aqui não usamos st.image diretamente na variável 'imgs[0]'
-            # Verificamos primeiro se é uma string válida e se o arquivo existe
-            caminho_imagem = imgs[0] if (imgs and len(imgs) > 0) else None
-            
-            if caminho_imagem and (caminho_imagem.startswith("http") or os.path.exists(caminho_imagem)):
-                try:
-                    c_row1.image(caminho_imagem, width=80)
-                except Exception:
-                    c_row1.write("Erro na imagem")
+            # --- PROTEÇÃO CONTRA O ERRO DE IMAGEM ---
+            img_path = p.get('Imagens', [])
+            if img_path and len(img_path) > 0:
+                if os.path.exists(img_path[0]):
+                    try:
+                        cols[0].image(img_path[0], width=80)
+                    except:
+                        cols[0].write("Erro foto")
+                else:
+                    cols[0].write("Foto não encontrada")
             else:
-                c_row1.write("Sem imagem")
-            # --------------------------
+                cols[0].write("Sem foto")
+            # ----------------------------------------
             
-            c_row2.write(f"### {p.get('Nome')}")
-            c_row2.write(f"**Preço:** R$ {p.get('Preco')}")
+            cols[1].write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
             
-            if c_row3.button("🗑️ Excluir", key=f"d{i}"): 
+            if cols[1].button("🗑️ Excluir", key=f"d{i}"): 
                 st.session_state.produtos_totais.pop(i)
                 salvar_catalogo(st.session_state.produtos_totais)
                 st.rerun()
